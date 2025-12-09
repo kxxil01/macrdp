@@ -538,7 +538,7 @@ struct ContentView: View {
                     }
 
                     Text("Access via " + #"\\tsclient\"# + (sharedFolderName.isEmpty ? "Mac" : sharedFolderName))
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(.tertiary)
                 }
             }

@@ -6,18 +6,31 @@ struct SavedConnection: Codable, Identifiable, Equatable {
     var host: String
     var port: String
     var username: String
-    var password: String
     var domain: String
     var width: String
     var height: String
     var enableNLA: Bool
     var allowGFX: Bool
     var lastUsed: Date
-    // Drive redirection - share local folder with remote Windows
-    var sharedFolderPath: String  // Local folder path (e.g., "~/Downloads")
-    var sharedFolderName: String  // Name shown on Windows (e.g., "Mac")
-    // Connection timeout in seconds (0 = no timeout, default 30)
+    var sharedFolderPath: String
+    var sharedFolderName: String
     var timeoutSeconds: UInt32
+    
+    // Password stored in Keychain, not in struct
+    var password: String {
+        get { KeychainService.getPassword(for: keychainAccount) ?? "" }
+        set { KeychainService.savePassword(newValue, for: keychainAccount) }
+    }
+    
+    var keychainAccount: String {
+        KeychainService.accountKey(host: host, port: port, username: username)
+    }
+    
+    // Custom coding to exclude password from JSON
+    enum CodingKeys: String, CodingKey {
+        case id, name, host, port, username, domain, width, height
+        case enableNLA, allowGFX, lastUsed, sharedFolderPath, sharedFolderName, timeoutSeconds
+    }
 
     init(
         id: UUID = UUID(),
@@ -41,7 +54,6 @@ struct SavedConnection: Codable, Identifiable, Equatable {
         self.host = host
         self.port = port
         self.username = username
-        self.password = password
         self.domain = domain
         self.width = width
         self.height = height
@@ -51,6 +63,11 @@ struct SavedConnection: Codable, Identifiable, Equatable {
         self.sharedFolderPath = sharedFolderPath
         self.sharedFolderName = sharedFolderName
         self.timeoutSeconds = timeoutSeconds
+        
+        // Save password to Keychain
+        if !password.isEmpty {
+            KeychainService.savePassword(password, for: KeychainService.accountKey(host: host, port: port, username: username))
+        }
     }
 }
 
@@ -63,7 +80,50 @@ final class ConnectionStore: ObservableObject {
     static let shared = ConnectionStore()
 
     private init() {
+        migratePasswordsToKeychain()
         load()
+    }
+    
+    // One-time migration of passwords from UserDefaults to Keychain
+    private func migratePasswordsToKeychain() {
+        let migrationKey = "passwordsMigratedToKeychain"
+        guard !UserDefaults.standard.bool(forKey: migrationKey) else { return }
+        
+        // Try to load old format with passwords in JSON
+        guard let data = UserDefaults.standard.data(forKey: storageKey) else {
+            UserDefaults.standard.set(true, forKey: migrationKey)
+            return
+        }
+        
+        // Decode using a temporary struct that includes password
+        struct LegacyConnection: Codable {
+            let id: UUID
+            var name: String
+            var host: String
+            var port: String
+            var username: String
+            var password: String
+            var domain: String
+            var width: String
+            var height: String
+            var enableNLA: Bool
+            var allowGFX: Bool
+            var lastUsed: Date
+            var sharedFolderPath: String?
+            var sharedFolderName: String?
+            var timeoutSeconds: UInt32?
+        }
+        
+        if let legacy = try? JSONDecoder().decode([LegacyConnection].self, from: data) {
+            for conn in legacy {
+                if !conn.password.isEmpty {
+                    let account = KeychainService.accountKey(host: conn.host, port: conn.port, username: conn.username)
+                    KeychainService.savePassword(conn.password, for: account)
+                }
+            }
+        }
+        
+        UserDefaults.standard.set(true, forKey: migrationKey)
     }
 
     func save(_ connection: SavedConnection) {
@@ -84,11 +144,15 @@ final class ConnectionStore: ObservableObject {
     }
 
     func delete(_ connection: SavedConnection) {
+        KeychainService.deletePassword(for: connection.keychainAccount)
         connections.removeAll { $0.id == connection.id }
         persist()
     }
 
     func deleteAll() {
+        for connection in connections {
+            KeychainService.deletePassword(for: connection.keychainAccount)
+        }
         connections.removeAll()
         persist()
     }
