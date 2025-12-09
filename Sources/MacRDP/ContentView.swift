@@ -38,25 +38,34 @@ struct ContentView: View {
 
     var body: some View {
         ZStack(alignment: .leading) {
-            HStack(spacing: 0) {
-                if showSidebar {
+            // Canvas always takes full width
+            canvasArea
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            
+            // Sidebar layout depends on fullscreen mode
+            if showSidebar {
+                if isFullscreen {
+                    // Fullscreen: sidebar overlays on top
                     sidebar
                         .frame(width: sidebarWidth)
-                        .background(isFullscreen ? .ultraThinMaterial : .regularMaterial)
-                        .clipShape(isFullscreen ? AnyShape(RoundedRectangle(cornerRadius: 12)) : AnyShape(Rectangle()))
-                        .shadow(color: isFullscreen ? .black.opacity(0.3) : .clear, radius: isFullscreen ? 20 : 0, x: 5, y: 0)
-                        .padding(.leading, isFullscreen ? 8 : 0)
-                        .padding(.vertical, isFullscreen ? 8 : 0)
+                        .background(.ultraThinMaterial)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .shadow(color: .black.opacity(0.3), radius: 20, x: 5, y: 0)
+                        .padding(.leading, 8)
+                        .padding(.vertical, 8)
                         .transition(.move(edge: .leading).combined(with: .opacity))
-
-                    if !isFullscreen {
+                } else {
+                    // Windowed: sidebar pushes content (use HStack)
+                    HStack(spacing: 0) {
+                        sidebar
+                            .frame(width: sidebarWidth)
+                            .background(.regularMaterial)
                         Divider()
+                        Spacer()
                     }
+                    .transition(.move(edge: .leading).combined(with: .opacity))
                 }
-
-                canvasArea
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             // Hover area to reveal sidebar when hidden in fullscreen
             if isFullscreen && !showSidebar {
