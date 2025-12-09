@@ -385,10 +385,14 @@ static void crdp_OnChannelConnectedEventHandler(void* context, const ChannelConn
     crdp_context* ctx = (crdp_context*)context;
     if (!ctx) return;
     
-    WLog_DBG(CRDP_TAG, "Channel connected: %s", e->name);
+    WLog_INFO(CRDP_TAG, "Channel connected: %s", e->name);
     
     if (strcmp(e->name, CLIPRDR_SVC_CHANNEL_NAME) == 0) {
         crdp_cliprdr_init(ctx, (CliprdrClientContext*)e->pInterface);
+    } else if (strcmp(e->name, "rdpgfx") == 0) {
+        WLog_INFO(CRDP_TAG, "GFX Graphics Pipeline channel active");
+    } else if (strcmp(e->name, "drdynvc") == 0) {
+        WLog_INFO(CRDP_TAG, "Dynamic Virtual Channel (required for GFX) active");
     }
 }
 
@@ -413,6 +417,7 @@ static BOOL crdp_pre_connect(freerdp* instance) {
     freerdp_settings_set_uint32(settings, FreeRDP_DesktopHeight, cfg->height ? cfg->height : 720);
     freerdp_settings_set_uint32(settings, FreeRDP_ColorDepth, 32);
     freerdp_settings_set_bool(settings, FreeRDP_SupportGraphicsPipeline, cfg->allow_gfx);
+    WLog_INFO(CRDP_TAG, "Graphics Pipeline (GFX): %s", cfg->allow_gfx ? "enabled" : "disabled");
     freerdp_settings_set_bool(settings, FreeRDP_SoftwareGdi, TRUE);
     freerdp_settings_set_bool(settings, FreeRDP_AutoLogonEnabled, TRUE);
     freerdp_settings_set_bool(settings, FreeRDP_NlaSecurity, cfg->enable_nla);

@@ -460,12 +460,6 @@ struct ContentView: View {
                     isOn: $enableNLA
                 )
 
-                OptionToggle(
-                    title: "Graphics Pipeline (GFX)",
-                    subtitle: "Enhanced graphics, may not work on all servers",
-                    isOn: $allowGFX
-                )
-
                 Divider()
                     .padding(.vertical, 4)
 
