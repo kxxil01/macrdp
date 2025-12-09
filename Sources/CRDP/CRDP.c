@@ -740,21 +740,18 @@ int32_t crdp_get_rtt_ms(crdp_client_t* client) {
     }
     
     // Fallback: use frame timing as a proxy for responsiveness
-    // Average frame interval gives an indication of connection health
-    if (client->frame_count > 5) {
+    // Need at least 2 frames to calculate interval
+    if (client->frame_count >= 2) {
         uint32_t avg_interval = (uint32_t)(client->frame_interval_sum / client->frame_count);
-        // Reset counters for next measurement window
-        client->frame_interval_sum = 0;
-        client->frame_count = 0;
+        // Only reset if we have enough samples for a good measurement
+        if (client->frame_count >= 5) {
+            client->frame_interval_sum = 0;
+            client->frame_count = 0;
+        }
         // Cache and return average frame interval (capped at 500ms)
         client->last_rtt_ms = avg_interval < 500 ? (int32_t)avg_interval : 500;
-        return client->last_rtt_ms;
     }
     
-    // Return last known value if we have one (keeps indicator visible during idle)
-    if (client->last_rtt_ms > 0) {
-        return client->last_rtt_ms;
-    }
-    
-    return -1;
+    // Always return cached value once we have one
+    return client->last_rtt_ms > 0 ? client->last_rtt_ms : -1;
 }

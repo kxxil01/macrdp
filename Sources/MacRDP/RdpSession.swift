@@ -302,7 +302,10 @@ private extension RdpSession {
         guard let client = client else { return }
         let rtt = crdp_get_rtt_ms(client)
         DispatchQueue.main.async {
-            self.rttMs = rtt
+            // Only update if we got a valid value, keep last known otherwise
+            if rtt >= 0 {
+                self.rttMs = rtt
+            }
         }
     }
 }
