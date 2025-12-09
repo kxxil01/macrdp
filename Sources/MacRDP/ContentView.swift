@@ -537,7 +537,7 @@ struct ContentView: View {
                         .help("Clear shared folder")
                     }
 
-                    Text("Appears as \\\\tsclient\\\(sharedFolderName.isEmpty ? "Mac" : sharedFolderName)")
+                    Text("Access via " + #"\\tsclient\"# + (sharedFolderName.isEmpty ? "Mac" : sharedFolderName))
                         .font(.system(size: 10, design: .monospaced))
                         .foregroundStyle(.tertiary)
                 }
