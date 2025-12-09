@@ -11,7 +11,8 @@ Sources/
 ├── CFREERDP/          # System library target for FreeRDP via pkg-config
 ├── CRDP/              # C shim wrapping FreeRDP in Swift-friendly API
 │   ├── include/       # Public headers (crdp.h)
-│   └── crdp.c         # Implementation
+│   ├── crdp.c         # Implementation
+│   └── clipboard_mac.m # macOS clipboard bridge (NSPasteboard)
 └── MacRDP/            # SwiftUI application
     ├── MacRDPApp.swift      # App entry point, window configuration, menu commands
     ├── ContentView.swift    # Main UI with sidebar layout, forms, floating controls
@@ -35,6 +36,8 @@ Sources/
 - **Scroll support**: Vertical and horizontal (trackpad/mouse wheel)
 - **Keyboard mapping**: Full keyboard with special keys (F1-F12, arrows, modifiers)
 - **Resolution presets**: 720p, 1080p, 1440p quick-select buttons
+- **Clipboard sharing**: Bidirectional text copy/paste between Mac and Windows
+- **Drive redirection**: Share local folders with remote Windows session
 
 ### UI/UX
 
@@ -131,6 +134,8 @@ make -j$(sysctl -n hw.ncpu) && sudo make install
 | `RdpCanvasView.swift` | Frame rendering, mouse/keyboard/scroll input |
 | `RdpSession.swift` | Connection state, frame handling, C shim bridge |
 | `ConnectionStore.swift` | UserDefaults persistence for saved connections |
+| `crdp.c` | C shim: FreeRDP wrapper, clipboard/drive channel handlers |
+| `clipboard_mac.m` | Objective-C bridge to macOS NSPasteboard |
 
 ## Keyboard Shortcuts
 
@@ -142,6 +147,16 @@ make -j$(sysctl -n hw.ncpu) && sudo make install
 | `Cmd+Shift+D` | Disconnect |
 | `Cmd+Ctrl+F` | Toggle fullscreen |
 | `Esc` | Exit fullscreen |
+
+### In RDP Session (Windows Shortcuts)
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+C` | Copy (in Windows) |
+| `Ctrl+V` | Paste (in Windows) |
+| `Ctrl+X` | Cut (in Windows) |
+| `Ctrl+A` | Select All (in Windows) |
+| `Ctrl+Z` | Undo (in Windows) |
 
 ## Roadmap
 
@@ -161,12 +176,15 @@ make -j$(sysctl -n hw.ncpu) && sudo make install
 - [x] Drive redirection UI (share local folder with remote Windows)
   - **Note**: Requires FreeRDP built with `BUILTIN_CHANNELS=OFF`. Homebrew's FreeRDP has static channels which prevents dynamic loading of rdpdr plugin.
 - [x] Connection timeout with retry option
+- [x] Clipboard sharing: Bidirectional text copy/paste between Mac and Windows
+  - Copy on Mac (Cmd+C) → Paste in Windows (Ctrl+V)
+  - Copy in Windows (Ctrl+C) → Paste on Mac (Cmd+V)
+  - **Note**: Requires FreeRDP built with `BUILTIN_CHANNELS=OFF`
 
 ### Planned
 
 #### High Priority (Functionality)
 
-- [ ] **Clipboard sharing**: Text copy/paste between local and remote (same FreeRDP limitation as drive redirection)
 - [ ] **Secure password storage**: Use macOS Keychain instead of UserDefaults
 - [ ] **Certificate validation UI**: Show cert details, allow trust decisions
 
