@@ -21,6 +21,8 @@
 // External functions from clipboard_mac.m
 extern char* crdp_clipboard_get_text(void);
 extern int crdp_clipboard_set_text(const char* text);
+extern void crdp_clipboard_start_monitor(void (*callback)(void* ctx), void* ctx);
+extern void crdp_clipboard_stop_monitor(void);
 
 static const char* CRDP_TAG = "CRDP";
 
@@ -246,13 +248,14 @@ static UINT crdp_cliprdr_server_format_data_request(CliprdrClientContext* cliprd
     crdp_context* ctx = (crdp_context*)cliprdr->custom;
     if (!ctx) return ERROR_INTERNAL_ERROR;
     
-    WLog_DBG(CRDP_TAG, "Server requesting clipboard data, format=%u", req->requestedFormatId);
+    fprintf(stderr, "[CRDP] Server requesting clipboard data, format=%u\n", req->requestedFormatId);
     
     CLIPRDR_FORMAT_DATA_RESPONSE response = { 0 };
     
     // CF_UNICODETEXT = 13, CF_TEXT = 1
     if (req->requestedFormatId == 13 || req->requestedFormatId == 1) {
         char* text = crdp_clipboard_get_text();
+        fprintf(stderr, "[CRDP] Local clipboard text: %s\n", text ? text : "(null)");
         if (text) {
             size_t len = strlen(text);
             // Convert to UTF-16LE for CF_UNICODETEXT
@@ -336,6 +339,15 @@ static UINT crdp_cliprdr_server_format_data_response(CliprdrClientContext* clipr
     return CHANNEL_RC_OK;
 }
 
+// Callback when local macOS clipboard changes
+static void crdp_local_clipboard_changed(void* context) {
+    crdp_context* ctx = (crdp_context*)context;
+    if (!ctx || !ctx->cliprdr || !ctx->clipboardSync) return;
+    
+    fprintf(stderr, "[CRDP] Local clipboard changed, notifying server\n");
+    crdp_cliprdr_send_client_format_list(ctx->cliprdr);
+}
+
 static void crdp_cliprdr_init(crdp_context* ctx, CliprdrClientContext* cliprdr) {
     ctx->cliprdr = cliprdr;
     cliprdr->custom = ctx;
@@ -353,10 +365,16 @@ static void crdp_cliprdr_init(crdp_context* ctx, CliprdrClientContext* cliprdr) 
     cliprdr->ServerFormatDataRequest = crdp_cliprdr_server_format_data_request;
     cliprdr->ServerFormatDataResponse = crdp_cliprdr_server_format_data_response;
     
+    // Start monitoring local clipboard for changes
+    crdp_clipboard_start_monitor(crdp_local_clipboard_changed, ctx);
+    
     WLog_INFO(CRDP_TAG, "Clipboard channel initialized");
 }
 
 static void crdp_cliprdr_uninit(crdp_context* ctx) {
+    // Stop monitoring local clipboard
+    crdp_clipboard_stop_monitor();
+    
     if (ctx->clipboard) {
         ClipboardDestroy(ctx->clipboard);
         ctx->clipboard = NULL;

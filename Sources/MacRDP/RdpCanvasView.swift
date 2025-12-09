@@ -124,6 +124,26 @@ final class Canvas: NSView {
     override func flagsChanged(with event: NSEvent) {
         sendModifierKey(event: event)
     }
+
+    // Override to capture key equivalents (Cmd+key, Ctrl+key) before macOS handles them
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        // Only intercept when we're the first responder and connected
+        guard window?.firstResponder === self, session?.state == .connected else {
+            return super.performKeyEquivalent(with: event)
+        }
+        
+        // Intercept Ctrl+key combinations and send to remote
+        if event.modifierFlags.contains(.control) {
+            sendKey(event: event, isDown: true)
+            // Schedule key up after a short delay
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+                self?.sendKey(event: event, isDown: false)
+            }
+            return true
+        }
+        
+        return super.performKeyEquivalent(with: event)
+    }
 }
 
 // MARK: - Input helpers
