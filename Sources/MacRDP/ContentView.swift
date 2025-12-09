@@ -67,8 +67,8 @@ struct ContentView: View {
                 }
             }
 
-            // Hover area to reveal sidebar when hidden in fullscreen
-            if isFullscreen && !showSidebar {
+            // Hover area to reveal sidebar when hidden in fullscreen (only when not connected)
+            if isFullscreen && !showSidebar && !isConnected {
                 Color.clear
                     .frame(width: 20)
                     .frame(maxHeight: .infinity)
