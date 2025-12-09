@@ -145,6 +145,10 @@ swift run MacRDP
 
 ### High Priority (Functionality)
 
+- [ ] **File transfer**: Send/receive files between local Mac and remote Windows
+  - Drive redirection: Share local folder with remote (appears as network drive)
+  - Drag & drop: Drop files onto RDP window to upload
+  - Download: Right-click remote file → "Copy to Mac"
 - [ ] **Clipboard sharing**: Text copy/paste between local and remote
 - [ ] **Secure password storage**: Use macOS Keychain instead of UserDefaults
 - [ ] **Connection timeout**: Configurable timeout with retry option
@@ -163,7 +167,6 @@ swift run MacRDP
 - [ ] **Multi-monitor support**: Span across multiple displays
 - [ ] **Audio redirection**: Play remote audio locally
 - [ ] **Printer redirection**: Print to local printers
-- [ ] **Drive redirection**: Share local folders with remote
 - [ ] **RemoteApp mode**: Run individual apps instead of full desktop
 - [ ] **Gateway support**: RD Gateway for secure external access
 
