@@ -180,13 +180,16 @@ make -j$(sysctl -n hw.ncpu) && sudo make install
   - Copy on Mac (Cmd+C) → Paste in Windows (Ctrl+V)
   - Copy in Windows (Ctrl+C) → Paste on Mac (Cmd+V)
   - **Note**: Requires FreeRDP built with `BUILTIN_CHANNELS=OFF`
+- [x] Certificate validation UI: Show cert details, allow trust decisions (Accept Once, Always Trust)
+- [x] Secure password storage: Use macOS Keychain instead of UserDefaults
+  - Automatic migration from old UserDefaults storage
+  - Passwords persist after app deletion (stored in system Keychain)
 
 ### Planned
 
 #### High Priority (Functionality)
 
-- [ ] **Secure password storage**: Use macOS Keychain instead of UserDefaults
-- [ ] **Certificate validation UI**: Show cert details, allow trust decisions
+- [ ] **Clear all data option**: Remove Keychain passwords, UserDefaults, trusted certs for clean uninstall
 
 #### Medium Priority (UX)
 
