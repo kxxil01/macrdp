@@ -355,26 +355,309 @@ struct ContentView: View {
     private var sidebar: some View {
         VStack(spacing: 0) {
             sidebarHeader
-            ScrollView {
-                VStack(spacing: 20) {
-                    if !connectionStore.connections.isEmpty {
-                        recentConnectionsSection
-                    }
-                    connectionSection
-                    credentialsSection
-                    displaySection
-                    optionsSection
-                    fileSharingSection
-                    actionButtons
+            
+            VStack(spacing: 12) {
+                // Recent connections (compact)
+                if !connectionStore.connections.isEmpty {
+                    recentConnectionsCompact
                 }
-                .padding(16)
+                
+                // Connection + Credentials combined
+                connectionCredentialsSection
+                
+                // Display (compact inline)
+                displaySectionCompact
+                
+                // Options (compact)
+                optionsSectionCompact
+                
+                // File sharing (collapsible)
+                fileSharingCompact
+                
+                Spacer(minLength: 0)
+                
+                // Connect button
+                actionButtons
             }
-            Spacer(minLength: 0)
+            .padding(12)
+            
             statusBar
         }
         .background(Color(nsColor: .controlBackgroundColor))
     }
 
+    private var recentConnectionsCompact: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Image(systemName: "clock.arrow.circlepath")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                Text("RECENT")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+            
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(connectionStore.connections.prefix(5)) { conn in
+                        Button {
+                            loadConnection(conn)
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "desktopcomputer")
+                                    .font(.system(size: 9))
+                                Text(conn.name)
+                                    .font(.system(size: 11, weight: .medium))
+                                    .lineLimit(1)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 5)
+                            .background(Color(nsColor: .controlBackgroundColor))
+                            .clipShape(RoundedRectangle(cornerRadius: 5))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 5)
+                                    .stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .help("\(conn.host) - \(conn.username)")
+                    }
+                }
+            }
+        }
+    }
+    
+    private var connectionCredentialsSection: some View {
+        VStack(spacing: 8) {
+            // Host row
+            HStack(spacing: 8) {
+                Image(systemName: "server.rack")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 16)
+                TextField("Host (e.g. 192.168.1.100)", text: $host)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 12))
+                Text(":")
+                    .foregroundStyle(.tertiary)
+                TextField("3389", text: $port)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 12))
+                    .frame(width: 45)
+            }
+            .padding(8)
+            .background(Color(nsColor: .textBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            
+            // Username + Domain row
+            HStack(spacing: 8) {
+                Image(systemName: "person")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 16)
+                TextField("Username", text: $username)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 12))
+                
+                if !domain.isEmpty || username.contains("\\") {
+                    Text("@")
+                        .foregroundStyle(.tertiary)
+                    TextField("Domain", text: $domain)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 12))
+                        .frame(width: 60)
+                }
+            }
+            .padding(8)
+            .background(Color(nsColor: .textBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            
+            // Password row
+            HStack(spacing: 8) {
+                Image(systemName: "lock")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 16)
+                
+                if showPassword {
+                    TextField("Password", text: $password)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 12))
+                } else {
+                    SecureField("Password", text: $password)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 12))
+                }
+                
+                Button {
+                    showPassword.toggle()
+                } label: {
+                    Image(systemName: showPassword ? "eye.slash" : "eye")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(8)
+            .background(Color(nsColor: .textBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
+    }
+    
+    private var displaySectionCompact: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "display")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .frame(width: 16)
+            
+            TextField("W", text: $width)
+                .textFieldStyle(.plain)
+                .font(.system(size: 12, design: .monospaced))
+                .frame(width: 45)
+            
+            Text("×")
+                .foregroundStyle(.tertiary)
+            
+            TextField("H", text: $height)
+                .textFieldStyle(.plain)
+                .font(.system(size: 12, design: .monospaced))
+                .frame(width: 45)
+            
+            Spacer()
+            
+            // Resolution presets
+            ForEach([("720p", "1280", "720"), ("1080p", "1920", "1080"), ("1440p", "2560", "1440")], id: \.0) { preset in
+                Button {
+                    width = preset.1
+                    height = preset.2
+                } label: {
+                    Text(preset.0)
+                        .font(.system(size: 10, weight: .medium))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(width == preset.1 && height == preset.2 ? Color.accentColor : Color(nsColor: .controlBackgroundColor))
+                        .foregroundStyle(width == preset.1 && height == preset.2 ? .white : .secondary)
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(8)
+        .background(Color(nsColor: .textBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+    
+    private var optionsSectionCompact: some View {
+        HStack(spacing: 12) {
+            // NLA toggle
+            Toggle(isOn: $enableNLA) {
+                HStack(spacing: 4) {
+                    Image(systemName: "lock.shield")
+                        .font(.system(size: 10))
+                    Text("NLA")
+                        .font(.system(size: 11))
+                }
+            }
+            .toggleStyle(.switch)
+            .controlSize(.mini)
+            .help("Network Level Authentication")
+            
+            Divider()
+                .frame(height: 16)
+            
+            // Timeout picker
+            HStack(spacing: 4) {
+                Image(systemName: "clock")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                Picker("", selection: $timeoutSeconds) {
+                    ForEach(timeoutOptions, id: \.1) { option in
+                        Text(option.0).tag(option.1)
+                    }
+                }
+                .pickerStyle(.menu)
+                .frame(width: 75)
+                .controlSize(.small)
+            }
+            .help("Connection timeout")
+            
+            Spacer()
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(Color(nsColor: .textBackgroundColor).opacity(0.5))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+    
+    @State private var showFileSharingOptions = false
+    
+    private var fileSharingCompact: some View {
+        DisclosureGroup(isExpanded: $showFileSharingOptions) {
+            VStack(spacing: 6) {
+                HStack(spacing: 6) {
+                    TextField("Folder path", text: $sharedFolderPath)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 11))
+                        .padding(6)
+                        .background(Color(nsColor: .textBackgroundColor))
+                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                    
+                    Button {
+                        selectSharedFolder()
+                    } label: {
+                        Image(systemName: "folder")
+                            .font(.system(size: 11))
+                    }
+                    .buttonStyle(.plain)
+                }
+                
+                if !sharedFolderPath.isEmpty {
+                    HStack(spacing: 4) {
+                        Text("Name:")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                        TextField("Mac", text: $sharedFolderName)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 11))
+                            .frame(width: 60)
+                            .padding(4)
+                            .background(Color(nsColor: .textBackgroundColor))
+                            .clipShape(RoundedRectangle(cornerRadius: 3))
+                        
+                        Spacer()
+                        
+                        Button {
+                            sharedFolderPath = ""
+                            sharedFolderName = "Mac"
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .padding(.top, 6)
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "folder")
+                    .font(.system(size: 10))
+                Text("File Sharing")
+                    .font(.system(size: 11, weight: .medium))
+                if !sharedFolderPath.isEmpty {
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 6, height: 6)
+                }
+            }
+            .foregroundStyle(.secondary)
+        }
+        .disclosureGroupStyle(CompactDisclosureStyle())
+    }
+    
     private var recentConnectionsSection: some View {
         FormSection(title: "Recent", icon: "clock.arrow.circlepath") {
             VStack(spacing: 6) {
@@ -424,25 +707,25 @@ struct ContentView: View {
     }
 
     private var sidebarHeader: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Image(systemName: "desktopcomputer")
-                .font(.system(size: 20, weight: .medium))
+                .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(.tint)
             Text("Mac RDP")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
             Spacer()
             Button {
                 importRdpFile()
             } label: {
                 Image(systemName: "doc.badge.plus")
-                    .font(.system(size: 14))
+                    .font(.system(size: 12))
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
             .help("Import .rdp file")
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .background(Color(nsColor: .separatorColor).opacity(0.3))
     }
 
@@ -647,24 +930,25 @@ struct ContentView: View {
         Button {
             connect()
         } label: {
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 if case .connecting = session.state {
                     ProgressView()
-                        .scaleEffect(0.7)
-                        .frame(width: 16, height: 16)
+                        .scaleEffect(0.6)
+                        .frame(width: 14, height: 14)
                 } else {
                     Image(systemName: isConnected ? "arrow.triangle.2.circlepath" : "play.fill")
+                        .font(.system(size: 11))
                 }
                 Text(connectButtonText)
-                    .fontWeight(.medium)
+                    .font(.system(size: 13, weight: .semibold))
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 44)
+            .frame(height: 36)
             .background(
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: 8)
                     .fill(connectButtonDisabled ? Color.accentColor.opacity(0.5) : Color.accentColor)
             )
-            .contentShape(RoundedRectangle(cornerRadius: 10))
+            .contentShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
         .foregroundStyle(.white)
@@ -689,20 +973,20 @@ struct ContentView: View {
     }
 
     private var statusBar: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             statusIndicator
             Text(statusText)
-                .font(.system(size: 12))
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
             Spacer()
             if isConnected, session.remoteSize != .zero {
                 Text("\(Int(session.remoteSize.width))×\(Int(session.remoteSize.height))")
-                    .font(.system(size: 11, design: .monospaced))
+                    .font(.system(size: 10, design: .monospaced))
                     .foregroundStyle(.tertiary)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .background(Color(nsColor: .separatorColor).opacity(0.3))
     }
 
@@ -1329,5 +1613,34 @@ private struct CertField: View {
                 .font(monospace ? .system(.body, design: .monospaced) : .body)
                 .textSelection(.enabled)
         }
+    }
+}
+
+struct CompactDisclosureStyle: DisclosureGroupStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    configuration.isExpanded.toggle()
+                }
+            } label: {
+                HStack {
+                    configuration.label
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                        .rotationEffect(.degrees(configuration.isExpanded ? 90 : 0))
+                }
+            }
+            .buttonStyle(.plain)
+            
+            if configuration.isExpanded {
+                configuration.content
+            }
+        }
+        .padding(8)
+        .background(Color(nsColor: .textBackgroundColor).opacity(0.5))
+        .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 }
