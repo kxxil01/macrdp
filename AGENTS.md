@@ -149,6 +149,10 @@ swift run MacRDP
   - Drive redirection: Share local folder with remote (appears as network drive)
   - Drag & drop: Drop files onto RDP window to upload
   - Download: Right-click remote file → "Copy to Mac"
+- [ ] **Caps Lock sync**: Caps Lock state not reflected in remote session
+  - Sync local Caps Lock state on connect
+  - Handle Caps Lock toggle events properly
+  - May need to send explicit key up/down instead of toggle
 - [ ] **Clipboard sharing**: Text copy/paste between local and remote
 - [ ] **Secure password storage**: Use macOS Keychain instead of UserDefaults
 - [ ] **Connection timeout**: Configurable timeout with retry option
