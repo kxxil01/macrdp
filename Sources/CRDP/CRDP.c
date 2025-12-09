@@ -696,3 +696,22 @@ int crdp_send_keyboard_event(crdp_client_t* client, uint16_t flags, uint16_t sca
     if (!client || !client->instance || !client->instance->context || !client->instance->context->input) return -1;
     return freerdp_input_send_keyboard_event(client->instance->context->input, flags, (UINT8)scancode);
 }
+
+int32_t crdp_get_rtt_ms(crdp_client_t* client) {
+    if (!client || !client->instance || !client->connected) return -1;
+    
+    rdpContext* context = client->instance->context;
+    if (!context) return -1;
+    
+    rdpAutoDetect* autodetect = context->autodetect;
+    if (autodetect && autodetect->netCharAverageRTT > 0) {
+        return (int32_t)autodetect->netCharAverageRTT;
+    }
+    
+    // Fallback: use base RTT if average not available
+    if (autodetect && autodetect->netCharBaseRTT > 0) {
+        return (int32_t)autodetect->netCharBaseRTT;
+    }
+    
+    return -1;
+}

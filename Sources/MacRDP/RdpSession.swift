@@ -28,8 +28,10 @@ final class RdpSession: ObservableObject {
     @Published var frame: CGImage?
     @Published var remoteSize: CGSize = .zero
     @Published var pendingCertificate: CertificateInfo?
+    @Published var rttMs: Int32 = -1  // Round-trip time in ms, -1 if unavailable
     
     private var client: OpaquePointer?
+    private var rttTimer: Timer?
     private var userRef: UnsafeMutableRawPointer?
     private let frameQueue = DispatchQueue(label: "macrdp.frame", qos: .userInitiated)
     
@@ -126,6 +128,8 @@ final class RdpSession: ObservableObject {
     }
 
     func disconnect() {
+        stopRttTimer()
+        
         guard let client = client else { return }
         self.client = nil  // Clear first to prevent double-free from callback
         self.userRef = nil
@@ -137,6 +141,7 @@ final class RdpSession: ObservableObject {
             self.state = .disconnected
             self.frame = nil
             self.remoteSize = .zero
+            self.rttMs = -1
         }
     }
 
@@ -176,6 +181,7 @@ final class RdpSession: ObservableObject {
                 self.frame = image
                 if case .connecting = self.state {
                     self.state = .connected
+                    self.startRttTimer()
                 }
             }
         }
@@ -279,5 +285,24 @@ private extension RdpSession {
         guard let cert, let user else { return 0 }
         let session = Unmanaged<RdpSession>.fromOpaque(user).takeUnretainedValue()
         return session.handleCertificate(cert)
+    }
+    
+    func startRttTimer() {
+        rttTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+            self?.updateRtt()
+        }
+    }
+    
+    func stopRttTimer() {
+        rttTimer?.invalidate()
+        rttTimer = nil
+    }
+    
+    func updateRtt() {
+        guard let client = client else { return }
+        let rtt = crdp_get_rtt_ms(client)
+        DispatchQueue.main.async {
+            self.rttMs = rtt
+        }
     }
 }

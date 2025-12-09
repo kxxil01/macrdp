@@ -58,6 +58,10 @@ void crdp_client_free(crdp_client_t* client);
 int crdp_send_pointer_event(crdp_client_t* client, uint16_t flags, uint16_t x, uint16_t y);
 int crdp_send_keyboard_event(crdp_client_t* client, uint16_t flags, uint16_t scancode);
 
+// Connection health
+// Returns round-trip time in milliseconds, or -1 if not available
+int32_t crdp_get_rtt_ms(crdp_client_t* client);
+
 #ifdef __cplusplus
 }
 #endif

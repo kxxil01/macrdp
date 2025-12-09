@@ -239,6 +239,10 @@ struct ContentView: View {
                     .padding(.leading, 8)
             }
             
+            if session.rttMs >= 0 {
+                latencyIndicator
+            }
+            
             Divider()
                 .frame(height: 16)
             
@@ -248,6 +252,36 @@ struct ContentView: View {
         .padding(6)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
         .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 2)
+    }
+    
+    private var latencyIndicator: some View {
+        HStack(spacing: 4) {
+            Image(systemName: latencyIcon)
+                .font(.system(size: 10))
+                .foregroundStyle(latencyColor)
+            Text("\(session.rttMs)ms")
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundStyle(.secondary)
+        }
+        .help("Network latency (round-trip time)")
+    }
+    
+    private var latencyIcon: String {
+        switch session.rttMs {
+        case ..<50: return "wifi"
+        case ..<100: return "wifi"
+        case ..<200: return "wifi.exclamationmark"
+        default: return "wifi.exclamationmark"
+        }
+    }
+    
+    private var latencyColor: Color {
+        switch session.rttMs {
+        case ..<50: return .green
+        case ..<100: return .yellow
+        case ..<200: return .orange
+        default: return .red
+        }
     }
 
     private var disconnectButton: some View {
