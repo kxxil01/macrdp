@@ -120,6 +120,10 @@ final class Canvas: NSView {
     override func keyUp(with event: NSEvent) {
         sendKey(event: event, isDown: false)
     }
+
+    override func flagsChanged(with event: NSEvent) {
+        sendModifierKey(event: event)
+    }
 }
 
 // MARK: - Input helpers
@@ -230,6 +234,52 @@ private extension Canvas {
         }
 
         return nil
+    }
+
+    // Track previous modifier state to detect key up/down
+    private static var previousModifiers: NSEvent.ModifierFlags = []
+
+    func sendModifierKey(event: NSEvent) {
+        guard let session else { return }
+        let current = event.modifierFlags
+        let previous = Canvas.previousModifiers
+        Canvas.previousModifiers = current
+
+        // Caps Lock - special handling: macOS toggles on key down only
+        // We need to send both down and up to Windows for it to toggle
+        if event.keyCode == 57 { // Caps Lock key
+            let scancode: UInt16 = 0x3A
+            // Send key down
+            session.sendKey(flags: UInt16(KBD_FLAGS_DOWN), scancode: scancode)
+            // Send key up immediately after
+            session.sendKey(flags: UInt16(KBD_FLAGS_RELEASE), scancode: scancode)
+            return
+        }
+
+        // Handle other modifier keys: (flag, scancode, extended)
+        let modifierMappings: [(NSEvent.ModifierFlags, UInt16, Bool)] = [
+            (.shift, 0x2A, false),      // left shift
+            (.control, 0x1D, false),    // left control
+            (.option, 0x38, false),     // left option/alt
+            (.command, 0x5B, true),     // left command -> Windows key
+        ]
+
+        for (flag, scancode, extended) in modifierMappings {
+            let wasDown = previous.contains(flag)
+            let isDown = current.contains(flag)
+
+            if isDown && !wasDown {
+                // Key pressed
+                var flags = UInt16(KBD_FLAGS_DOWN)
+                if extended { flags |= UInt16(KBD_FLAGS_EXTENDED) }
+                session.sendKey(flags: flags, scancode: scancode)
+            } else if !isDown && wasDown {
+                // Key released
+                var flags = UInt16(KBD_FLAGS_RELEASE)
+                if extended { flags |= UInt16(KBD_FLAGS_EXTENDED) }
+                session.sendKey(flags: flags, scancode: scancode)
+            }
+        }
     }
 }
 
