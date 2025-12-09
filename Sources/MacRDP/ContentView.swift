@@ -117,6 +117,12 @@ struct ContentView: View {
         } message: {
             Text(validationError ?? "Please fill in all required fields")
         }
+        .onChange(of: isConnected) { connected in
+            // Auto-collapse sidebar when connected, show when disconnected
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                showSidebar = !connected
+            }
+        }
     }
 
     private var isConnecting: Bool {
