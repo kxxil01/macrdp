@@ -1,0 +1,302 @@
+#include "CRDP.h"
+
+#include <freerdp/client/channels.h>
+#include <freerdp/crypto/crypto.h>
+#include <freerdp/gdi/gdi.h>
+#include <freerdp/locale/keyboard.h>
+#include <winpr/thread.h>
+#include <winpr/wlog.h>
+
+#include <pthread.h>
+#include <stdlib.h>
+#include <string.h>
+
+static const char* CRDP_TAG = "CRDP";
+
+typedef struct {
+    rdpContext _p;
+    struct crdp_client* client;
+    pBeginPaint prev_begin_paint;
+    pEndPaint prev_end_paint;
+} crdp_context;
+
+struct crdp_client {
+    freerdp* instance;
+    crdp_config_t config;
+    crdp_frame_cb frame_cb;
+    void* frame_user;
+    crdp_disconnected_cb disconnect_cb;
+    void* disconnect_user;
+    pthread_t thread;
+    bool stop;
+    bool connected;
+};
+
+static void crdp_free_config(crdp_config_t* cfg) {
+    if (!cfg) return;
+    free((void*)cfg->host);
+    free((void*)cfg->username);
+    free((void*)cfg->password);
+    free((void*)cfg->domain);
+    memset(cfg, 0, sizeof(crdp_config_t));
+}
+
+static BOOL crdp_begin_paint(rdpContext* context) {
+    crdp_context* ctx = (crdp_context*)context;
+    BOOL ok = TRUE;
+    if (ctx->prev_begin_paint) {
+        ok = ctx->prev_begin_paint(context);
+    }
+    return ok;
+}
+
+static BOOL crdp_end_paint(rdpContext* context) {
+    crdp_context* ctx = (crdp_context*)context;
+    rdpGdi* gdi = context->gdi;
+    BOOL ok = TRUE;
+    if (ctx->prev_end_paint) {
+        ok = ctx->prev_end_paint(context);
+    }
+
+    if (gdi && ctx->client && ctx->client->frame_cb) {
+        ctx->client->frame_cb(gdi->primary_buffer,
+                              (UINT32)gdi->width,
+                              (UINT32)gdi->height,
+                              gdi->stride,
+                              ctx->client->frame_user);
+    }
+
+    return ok;
+}
+
+static BOOL crdp_desktop_resize(rdpContext* context) {
+    rdpSettings* settings = context->settings;
+    if (!context->gdi || !settings) return FALSE;
+    return gdi_resize(context->gdi, settings->DesktopWidth, settings->DesktopHeight);
+}
+
+static BOOL crdp_authenticate(freerdp* instance, char** username, char** password, char** domain) {
+    crdp_context* ctx = (crdp_context*)instance->context;
+    if (!ctx || !ctx->client) return FALSE;
+    const crdp_config_t* cfg = &ctx->client->config;
+
+    if (username && cfg->username) *username = strdup(cfg->username);
+    if (password && cfg->password) *password = strdup(cfg->password);
+    if (domain && cfg->domain) *domain = strdup(cfg->domain);
+    return TRUE;
+}
+
+static DWORD crdp_verify_certificate_ex(freerdp* instance,
+                                        const char* host,
+                                        UINT16 port,
+                                        const char* common_name,
+                                        const char* subject,
+                                        const char* issuer,
+                                        const char* fingerprint,
+                                        DWORD flags) {
+    WLog_INFO(CRDP_TAG, "Accepting certificate for %s:%u", host, port);
+    return 2; // accept for this session
+}
+
+static DWORD crdp_verify_changed_certificate_ex(freerdp* instance,
+                                                const char* host,
+                                                UINT16 port,
+                                                const char* common_name,
+                                                const char* subject,
+                                                const char* issuer,
+                                                const char* new_fingerprint,
+                                                const char* old_subject,
+                                                const char* old_issuer,
+                                                const char* old_fingerprint,
+                                                DWORD flags) {
+    WLog_INFO(CRDP_TAG, "Accepting changed certificate for %s:%u", host, port);
+    return 2; // accept for this session
+}
+
+static BOOL crdp_pre_connect(freerdp* instance) {
+    crdp_context* ctx = (crdp_context*)instance->context;
+    if (!ctx || !ctx->client) return FALSE;
+    const crdp_config_t* cfg = &ctx->client->config;
+    rdpSettings* settings = ctx->_p.settings;
+
+    freerdp_settings_set_string(settings, FreeRDP_ServerHostname, cfg->host);
+    freerdp_settings_set_uint32(settings, FreeRDP_ServerPort, cfg->port ? cfg->port : 3389);
+    freerdp_settings_set_uint32(settings, FreeRDP_DesktopWidth, cfg->width ? cfg->width : 1280);
+    freerdp_settings_set_uint32(settings, FreeRDP_DesktopHeight, cfg->height ? cfg->height : 720);
+    freerdp_settings_set_uint32(settings, FreeRDP_ColorDepth, 32);
+    freerdp_settings_set_bool(settings, FreeRDP_SupportGraphicsPipeline, cfg->allow_gfx);
+    freerdp_settings_set_bool(settings, FreeRDP_SoftwareGdi, TRUE);
+    freerdp_settings_set_bool(settings, FreeRDP_AutoLogonEnabled, TRUE);
+    freerdp_settings_set_bool(settings, FreeRDP_NlaSecurity, cfg->enable_nla);
+    freerdp_settings_set_bool(settings, FreeRDP_TlsSecurity, TRUE);
+    freerdp_settings_set_bool(settings, FreeRDP_RdpSecurity, TRUE);
+    freerdp_settings_set_bool(settings, FreeRDP_NegotiateSecurityLayer, TRUE);
+    freerdp_settings_set_bool(settings, FreeRDP_IgnoreCertificate, TRUE); // Accept all for now
+    freerdp_settings_set_bool(settings, FreeRDP_UseMultimon, FALSE);
+
+    if (cfg->username) freerdp_settings_set_string(settings, FreeRDP_Username, cfg->username);
+    if (cfg->password) freerdp_settings_set_string(settings, FreeRDP_Password, cfg->password);
+    if (cfg->domain) freerdp_settings_set_string(settings, FreeRDP_Domain, cfg->domain);
+
+    if (freerdp_client_load_addins(ctx->_p.channels, settings) != CHANNEL_RC_OK) {
+        WLog_WARN(CRDP_TAG, "Unable to load client channels");
+    }
+
+    return TRUE;
+}
+
+static BOOL crdp_post_connect(freerdp* instance) {
+    crdp_context* ctx = (crdp_context*)instance->context;
+    if (!ctx) return FALSE;
+
+    if (!gdi_init(instance, PIXEL_FORMAT_BGRA32)) return FALSE;
+
+    rdpUpdate* update = ctx->_p.update;
+    ctx->prev_begin_paint = update->BeginPaint;
+    ctx->prev_end_paint = update->EndPaint;
+    update->BeginPaint = crdp_begin_paint;
+    update->EndPaint = crdp_end_paint;
+    update->DesktopResize = crdp_desktop_resize;
+
+    return TRUE;
+}
+
+static BOOL crdp_context_new(freerdp* instance, rdpContext* context) {
+    crdp_context* ctx = (crdp_context*)context;
+    ctx->client = NULL;
+    ctx->prev_begin_paint = NULL;
+    ctx->prev_end_paint = NULL;
+    return TRUE;
+}
+
+static void crdp_context_free(freerdp* instance, rdpContext* context) {
+    if (context->gdi) {
+        gdi_free(instance);
+    }
+}
+
+static void* crdp_thread_start(void* arg) {
+    crdp_client_t* client = (crdp_client_t*)arg;
+
+    if (!freerdp_connect(client->instance)) {
+        WLog_ERR(CRDP_TAG, "connect failed");
+        goto finish;
+    }
+
+    client->connected = true;
+
+    rdpContext* context = client->instance->context;
+
+    while (!client->stop) {
+        if (freerdp_shall_disconnect_context(context)) break;
+        if (!freerdp_check_event_handles(context)) {
+            WLog_ERR(CRDP_TAG, "event handling failed");
+            break;
+        }
+    }
+
+    freerdp_disconnect(client->instance);
+    client->connected = false;
+
+finish:
+    if (client->disconnect_cb) client->disconnect_cb(client->disconnect_user);
+    return NULL;
+}
+
+crdp_client_t* crdp_client_new(crdp_frame_cb frame_cb, void* frame_user, crdp_disconnected_cb disconnect_cb, void* disconnect_user) {
+    crdp_client_t* client = calloc(1, sizeof(crdp_client_t));
+    if (!client) return NULL;
+
+    client->frame_cb = frame_cb;
+    client->frame_user = frame_user;
+    client->disconnect_cb = disconnect_cb;
+    client->disconnect_user = disconnect_user;
+    client->stop = false;
+    client->connected = false;
+
+    return client;
+}
+
+int crdp_client_connect(crdp_client_t* client, const crdp_config_t* config) {
+    if (!client || !config) return -1;
+    if (client->connected) return 0;
+
+    crdp_free_config(&client->config);
+    client->config = *config;
+    client->config.host = config->host ? strdup(config->host) : NULL;
+    client->config.username = config->username ? strdup(config->username) : NULL;
+    client->config.password = config->password ? strdup(config->password) : NULL;
+    client->config.domain = config->domain ? strdup(config->domain) : NULL;
+
+    freerdp* instance = freerdp_new();
+    if (!instance) return -2;
+
+    instance->ContextSize = sizeof(crdp_context);
+    instance->ContextNew = crdp_context_new;
+    instance->ContextFree = crdp_context_free;
+
+    if (!freerdp_context_new(instance)) {
+        freerdp_free(instance);
+        return -3;
+    }
+
+    crdp_context* ctx = (crdp_context*)instance->context;
+    ctx->client = client;
+
+    instance->PreConnect = crdp_pre_connect;
+    instance->PostConnect = crdp_post_connect;
+    instance->Authenticate = crdp_authenticate;
+    instance->VerifyCertificateEx = crdp_verify_certificate_ex;
+    instance->VerifyChangedCertificateEx = crdp_verify_changed_certificate_ex;
+
+    client->instance = instance;
+    client->stop = false;
+
+    if (pthread_create(&client->thread, NULL, crdp_thread_start, client) != 0) {
+        freerdp_context_free(client->instance);
+        freerdp_free(client->instance);
+        client->instance = NULL;
+        return -4;
+    }
+
+    return 0;
+}
+
+void crdp_client_disconnect(crdp_client_t* client) {
+    if (!client) return;
+    client->stop = true;
+
+    if (client->instance) {
+        freerdp_abort_connect_context(client->instance->context);
+    }
+
+    if (client->thread) {
+        pthread_join(client->thread, NULL);
+        memset(&client->thread, 0, sizeof(pthread_t));
+    }
+
+    if (client->instance) {
+        freerdp_context_free(client->instance);
+        freerdp_free(client->instance);
+        client->instance = NULL;
+    }
+
+    client->connected = false;
+}
+
+void crdp_client_free(crdp_client_t* client) {
+    if (!client) return;
+    crdp_client_disconnect(client);
+    crdp_free_config(&client->config);
+    free(client);
+}
+
+int crdp_send_pointer_event(crdp_client_t* client, uint16_t flags, uint16_t x, uint16_t y) {
+    if (!client || !client->instance || !client->instance->context || !client->instance->context->input) return -1;
+    return freerdp_input_send_mouse_event(client->instance->context->input, flags, x, y);
+}
+
+int crdp_send_keyboard_event(crdp_client_t* client, uint16_t flags, uint16_t scancode) {
+    if (!client || !client->instance || !client->instance->context || !client->instance->context->input) return -1;
+    return freerdp_input_send_keyboard_event(client->instance->context->input, flags, (UINT8)scancode);
+}
