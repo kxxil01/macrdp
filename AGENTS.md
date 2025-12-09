@@ -101,7 +101,7 @@ swift run MacRDP
 
 ## Future Improvements
 
-- [ ] Connection history/favorites persistence
+- [x] Connection history/favorites persistence
 - [x] Keyboard shortcut for sidebar toggle (Cmd+Shift+S)
 - [ ] Full-screen mode with auto-hiding sidebar
 - [ ] Clipboard sharing support

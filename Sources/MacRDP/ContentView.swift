@@ -3,6 +3,7 @@ import AppKit
 
 struct ContentView: View {
     @StateObject private var session = RdpSession()
+    @StateObject private var connectionStore = ConnectionStore.shared
     @State private var host = ""
     @State private var port = "3389"
     @State private var username = ""
@@ -16,7 +17,7 @@ struct ContentView: View {
     @State private var isHoveringConnect = false
     @State private var isHoveringDisconnect = false
 
-    private let sidebarWidth: CGFloat = 280
+    private let sidebarWidth: CGFloat = 300
 
     var body: some View {
         HStack(spacing: 0) {
@@ -92,6 +93,9 @@ struct ContentView: View {
             sidebarHeader
             ScrollView {
                 VStack(spacing: 20) {
+                    if !connectionStore.connections.isEmpty {
+                        recentConnectionsSection
+                    }
                     connectionSection
                     credentialsSection
                     displaySection
@@ -104,6 +108,47 @@ struct ContentView: View {
             statusBar
         }
         .background(Color(nsColor: .controlBackgroundColor))
+    }
+
+    private var recentConnectionsSection: some View {
+        FormSection(title: "Recent", icon: "clock.arrow.circlepath") {
+            VStack(spacing: 6) {
+                ForEach(connectionStore.connections.prefix(5)) { conn in
+                    RecentConnectionRow(
+                        connection: conn,
+                        onSelect: { loadConnection(conn) },
+                        onDelete: { connectionStore.delete(conn) }
+                    )
+                }
+            }
+        }
+    }
+
+    private func loadConnection(_ conn: SavedConnection) {
+        host = conn.host
+        port = conn.port
+        username = conn.username
+        domain = conn.domain
+        width = conn.width
+        height = conn.height
+        enableNLA = conn.enableNLA
+        allowGFX = conn.allowGFX
+        password = ""
+    }
+
+    private func saveCurrentConnection() {
+        guard !host.isEmpty else { return }
+        let conn = SavedConnection(
+            host: host,
+            port: port,
+            username: username,
+            domain: domain,
+            width: width,
+            height: height,
+            enableNLA: enableNLA,
+            allowGFX: allowGFX
+        )
+        connectionStore.save(conn)
     }
 
     private var sidebarHeader: some View {
@@ -372,6 +417,8 @@ struct ContentView: View {
         let widthVal = Double(width) ?? 1920
         let heightVal = Double(height) ?? 1080
 
+        saveCurrentConnection()
+
         session.connect(
             host: host,
             port: portNum,
@@ -575,5 +622,73 @@ struct GridPattern: View {
             }
             .stroke(Color.gray.opacity(0.15), lineWidth: 0.5)
         }
+    }
+}
+
+struct RecentConnectionRow: View {
+    let connection: SavedConnection
+    let onSelect: () -> Void
+    let onDelete: () -> Void
+
+    @State private var isHovering = false
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "desktopcomputer")
+                .font(.system(size: 14))
+                .foregroundStyle(.secondary)
+                .frame(width: 20)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(connection.name)
+                    .font(.system(size: 13, weight: .medium))
+                    .lineLimit(1)
+
+                HStack(spacing: 4) {
+                    if !connection.username.isEmpty {
+                        Text(connection.username)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.tertiary)
+                    }
+                    Text(timeAgo(connection.lastUsed))
+                        .font(.system(size: 11))
+                        .foregroundStyle(.quaternary)
+                }
+            }
+
+            Spacer()
+
+            if isHovering {
+                Button {
+                    onDelete()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+                .help("Remove from history")
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isHovering ? Color(nsColor: .selectedContentBackgroundColor).opacity(0.3) : Color.clear)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onSelect()
+        }
+        .onHover { isHovering = $0 }
+    }
+
+    private func timeAgo(_ date: Date) -> String {
+        let interval = Date().timeIntervalSince(date)
+        if interval < 60 { return "just now" }
+        if interval < 3600 { return "\(Int(interval / 60))m ago" }
+        if interval < 86400 { return "\(Int(interval / 3600))h ago" }
+        if interval < 604800 { return "\(Int(interval / 86400))d ago" }
+        return "\(Int(interval / 604800))w ago"
     }
 }
