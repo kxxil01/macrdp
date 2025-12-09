@@ -3,7 +3,7 @@ import AppKit
 
 struct ContentView: View {
     @StateObject private var session = RdpSession()
-    @StateObject private var connectionStore = ConnectionStore.shared
+    @ObservedObject private var connectionStore = ConnectionStore.shared
     @State private var host = ""
     @State private var port = "3389"
     @State private var username = ""
