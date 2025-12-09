@@ -37,7 +37,9 @@ let package = Package(
             linkerSettings: [
                 .unsafeFlags([
                     "-L/opt/homebrew/lib",
-                    "-L/usr/local/lib"
+                    "-L/usr/local/lib",
+                    "-Xlinker", "-rpath", "-Xlinker", "/opt/homebrew/lib",
+                    "-Xlinker", "-rpath", "-Xlinker", "/usr/local/lib"
                 ]),
                 .linkedLibrary("freerdp-client3"),
                 .linkedLibrary("freerdp3"),
