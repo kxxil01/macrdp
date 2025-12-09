@@ -430,14 +430,15 @@ struct ContentView: View {
                     .fontWeight(.medium)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
+            .frame(height: 44)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(connectButtonDisabled ? Color.accentColor.opacity(0.5) : Color.accentColor)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 10))
         }
         .buttonStyle(.plain)
         .foregroundStyle(.white)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(connectButtonDisabled ? Color.accentColor.opacity(0.5) : Color.accentColor)
-        )
         .scaleEffect(isHoveringConnect && !connectButtonDisabled ? 1.02 : 1.0)
         .animation(.easeInOut(duration: 0.15), value: isHoveringConnect)
         .onHover { isHoveringConnect = $0 }
