@@ -19,6 +19,8 @@ struct ContentView: View {
     @State private var isHoveringDisconnect = false
     @State private var isFullscreen = false
     @State private var sidebarHoverArea = false
+    @State private var validationError: String?
+    @State private var showValidationAlert = false
 
     private let sidebarWidth: CGFloat = 300
 
@@ -108,6 +110,11 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.willExitFullScreenNotification)) { _ in
             isFullscreen = false
             sidebarHoverArea = false
+        }
+        .alert("Connection Error", isPresented: $showValidationAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(validationError ?? "Please fill in all required fields")
         }
     }
 
@@ -495,7 +502,37 @@ struct ContentView: View {
         }
     }
 
+    private func validateConnection() -> String? {
+        var missing: [String] = []
+        
+        if host.trimmingCharacters(in: .whitespaces).isEmpty {
+            missing.append("Host")
+        }
+        if enableNLA {
+            if username.trimmingCharacters(in: .whitespaces).isEmpty {
+                missing.append("Username")
+            }
+            if password.isEmpty {
+                missing.append("Password")
+            }
+        }
+        
+        if missing.isEmpty { return nil }
+        
+        if missing.count == 1 {
+            return "\(missing[0]) is required"
+        } else {
+            return "\(missing.dropLast().joined(separator: ", ")) and \(missing.last!) are required"
+        }
+    }
+
     private func connect() {
+        if let error = validateConnection() {
+            validationError = error
+            showValidationAlert = true
+            return
+        }
+
         let portNum = UInt16(port) ?? 3389
         let widthVal = Double(width) ?? 1920
         let heightVal = Double(height) ?? 1080
@@ -503,11 +540,11 @@ struct ContentView: View {
         saveCurrentConnection()
 
         session.connect(
-            host: host,
+            host: host.trimmingCharacters(in: .whitespaces),
             port: portNum,
-            username: username,
+            username: username.trimmingCharacters(in: .whitespaces),
             password: password,
-            domain: domain,
+            domain: domain.trimmingCharacters(in: .whitespaces),
             size: CGSize(width: widthVal, height: heightVal),
             enableNLA: enableNLA,
             allowGFX: allowGFX
