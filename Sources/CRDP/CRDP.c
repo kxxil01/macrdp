@@ -1,6 +1,7 @@
 #include "CRDP.h"
 
 #include <freerdp/client/channels.h>
+#include <freerdp/client/cmdline.h>
 #include <freerdp/client/rdpdr.h>
 #include <freerdp/crypto/crypto.h>
 #include <freerdp/gdi/gdi.h>
@@ -155,22 +156,29 @@ static BOOL crdp_pre_connect(freerdp* instance) {
     if (crdp_validate_drive_path(cfg->drive_path)) {
         const char* drive_name = cfg->drive_name && cfg->drive_name[0] ? cfg->drive_name : "Mac";
         
-        // Enable device redirection channel
+        // Enable device redirection (required for RDPDR channel)
         freerdp_settings_set_bool(settings, FreeRDP_DeviceRedirection, TRUE);
-        freerdp_settings_set_bool(settings, FreeRDP_RedirectDrives, TRUE);
         
-        // Create drive device using FreeRDP's device API
-        // freerdp_device_new expects: Type, count, args[] where args = {name, path, NULL for automount}
-        const char* args[] = { drive_name, cfg->drive_path, NULL };
-        RDPDR_DEVICE* drive = freerdp_device_new(RDPDR_DTYP_FILESYSTEM, 2, args);
+        // Create drive device: args = { name, path } - name first, then path
+        // This matches FreeRDP's freerdp_client_add_drive() implementation
+        const char* drive_args[] = { drive_name, cfg->drive_path };
+        RDPDR_DEVICE* device = freerdp_device_new(RDPDR_DTYP_FILESYSTEM, 2, drive_args);
         
-        if (drive) {
-            if (freerdp_device_collection_add(settings, drive)) {
+        if (device) {
+            if (freerdp_device_collection_add(settings, device)) {
                 WLog_INFO(CRDP_TAG, "Drive redirection enabled: %s -> \\\\tsclient\\%s", 
                           cfg->drive_path, drive_name);
+                
+                // Explicitly add rdpdr static channel to ensure it gets loaded
+                const char* rdpdr_params[] = { "rdpdr" };
+                freerdp_client_add_static_channel(settings, 1, rdpdr_params);
+                
+                // Also add the drive channel
+                const char* drive_channel_params[] = { "drive" };
+                freerdp_client_add_static_channel(settings, 1, drive_channel_params);
             } else {
                 WLog_WARN(CRDP_TAG, "Failed to add drive to device collection");
-                freerdp_device_free(drive);
+                freerdp_device_free(device);
             }
         } else {
             WLog_WARN(CRDP_TAG, "Failed to create drive device");

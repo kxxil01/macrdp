@@ -100,11 +100,26 @@ Sources/
 ## Build & Run
 
 ```bash
+# Install FreeRDP via Homebrew (basic features)
+brew install freerdp
+
 # Ensure pkg-config can find freerdp3
 export PKG_CONFIG_PATH="$(brew --prefix)/lib/pkgconfig"
 
 # Build and run
 swift run MacRDP
+```
+
+### Advanced Features (Drive/Clipboard Redirection)
+
+Homebrew's FreeRDP builds channels statically, which prevents dynamic loading of rdpdr (drive) and cliprdr (clipboard) plugins. To enable these features, build FreeRDP from source:
+
+```bash
+brew uninstall freerdp
+git clone https://github.com/FreeRDP/FreeRDP.git /tmp/freerdp-build
+cd /tmp/freerdp-build && mkdir build && cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=/opt/homebrew -DBUILTIN_CHANNELS=OFF
+make -j$(sysctl -n hw.ncpu) && sudo make install
 ```
 
 ## Key Files
@@ -143,13 +158,14 @@ swift run MacRDP
 - [x] Floating toolbar with resolution display
 - [x] Custom connecting animation
 - [x] Caps Lock and modifier key sync
-- [x] Drive redirection (share local folder with remote Windows)
+- [x] Drive redirection UI (share local folder with remote Windows)
+  - **Note**: Requires FreeRDP built with `BUILTIN_CHANNELS=OFF`. Homebrew's FreeRDP has static channels which prevents dynamic loading of rdpdr plugin.
 
 ### Planned
 
 #### High Priority (Functionality)
 
-- [ ] **Clipboard sharing**: Text copy/paste between local and remote
+- [ ] **Clipboard sharing**: Text copy/paste between local and remote (same FreeRDP limitation as drive redirection)
 - [ ] **Secure password storage**: Use macOS Keychain instead of UserDefaults
 - [ ] **Connection timeout**: Configurable timeout with retry option
 - [ ] **Certificate validation UI**: Show cert details, allow trust decisions
