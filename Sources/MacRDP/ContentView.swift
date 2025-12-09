@@ -716,6 +716,12 @@ struct ContentView: View {
             Text(statusText)
                 .font(.system(size: 12, weight: .medium))
             
+            if isConnected && session.rttMs >= 0 {
+                Divider()
+                    .frame(height: 12)
+                latencyIndicator
+            }
+            
             if case .failed = session.state {
                 Button {
                     connect()
