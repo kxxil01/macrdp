@@ -160,7 +160,9 @@ struct ContentView: View {
             // Floating toolbar
             VStack {
                 HStack(spacing: 8) {
-                    sidebarToggle
+                    if !isConnected {
+                        sidebarToggle
+                    }
                     
                     if !showSidebar {
                         floatingStatus
