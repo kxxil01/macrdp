@@ -22,6 +22,7 @@ struct ContentView: View {
     @State private var validationError: String?
     @State private var showValidationAlert = false
     @State private var showPassword = false
+    @State private var connectingRotation: Double = 0
 
     private let sidebarWidth: CGFloat = 300
 
@@ -166,48 +167,85 @@ struct ContentView: View {
     }
 
     private var connectingView: some View {
-        VStack(spacing: 20) {
-            ProgressView()
-                .scaleEffect(1.5)
-                .progressViewStyle(CircularProgressViewStyle(tint: .accentColor))
+        VStack(spacing: 24) {
+            ZStack {
+                Circle()
+                    .stroke(Color.accentColor.opacity(0.2), lineWidth: 4)
+                    .frame(width: 64, height: 64)
+                
+                Circle()
+                    .trim(from: 0, to: 0.7)
+                    .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                    .frame(width: 64, height: 64)
+                    .rotationEffect(.degrees(connectingRotation))
+                    .onAppear {
+                        withAnimation(.linear(duration: 1).repeatForever(autoreverses: false)) {
+                            connectingRotation = 360
+                        }
+                    }
+                
+                Image(systemName: "network")
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundStyle(Color.accentColor)
+            }
             
             VStack(spacing: 8) {
                 Text("Connecting to \(host)")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(.primary)
                 
-                Text("Establishing secure connection...")
-                    .font(.system(size: 13))
+                Text("Establishing secure RDP connection...")
+                    .font(.system(size: 14))
                     .foregroundStyle(.secondary)
             }
             
-            Button("Cancel") {
+            Button {
                 session.disconnect()
+            } label: {
+                Text("Cancel")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 8)
+                    .background(Color.secondary.opacity(0.5), in: Capsule())
             }
             .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
             .padding(.top, 8)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var floatingToolbar: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
+            if session.remoteSize != .zero {
+                Text("\(Int(session.remoteSize.width))×\(Int(session.remoteSize.height))")
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, 8)
+            }
+            
+            Divider()
+                .frame(height: 16)
+            
             fullscreenToggle
             disconnectButton
         }
-        .padding(4)
+        .padding(6)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+        .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 2)
     }
 
     private var disconnectButton: some View {
         Button {
             session.disconnect()
         } label: {
-            Image(systemName: "xmark.circle.fill")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(.red)
-                .frame(width: 28, height: 28)
+            HStack(spacing: 4) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .bold))
+            }
+            .foregroundStyle(.white)
+            .frame(width: 24, height: 24)
+            .background(Color.red, in: Circle())
         }
         .buttonStyle(.plain)
         .help("Disconnect (Cmd+Shift+D)")
@@ -551,19 +589,46 @@ struct ContentView: View {
     }
 
     private var emptyStateView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "display.trianglebadge.exclamationmark")
-                .font(.system(size: 48, weight: .light))
-                .foregroundStyle(.tertiary)
+        VStack(spacing: 20) {
+            ZStack {
+                Circle()
+                    .fill(Color.accentColor.opacity(0.1))
+                    .frame(width: 80, height: 80)
+                
+                Image(systemName: "desktopcomputer")
+                    .font(.system(size: 32, weight: .medium))
+                    .foregroundStyle(Color.accentColor.opacity(0.6))
+            }
 
-            VStack(spacing: 6) {
-                Text("No Active Session")
-                    .font(.system(size: 16, weight: .medium))
+            VStack(spacing: 8) {
+                Text("Ready to Connect")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.primary)
+
+                Text("Enter your server details in the sidebar\nand click Connect to start a session")
+                    .font(.system(size: 14))
                     .foregroundStyle(.secondary)
-
-                Text("Enter connection details and click Connect")
-                    .font(.system(size: 13))
-                    .foregroundStyle(.tertiary)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(2)
+            }
+            
+            if !showSidebar {
+                Button {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        showSidebar = true
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "sidebar.left")
+                        Text("Show Sidebar")
+                    }
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Color.accentColor)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.accentColor.opacity(0.1), in: Capsule())
+                }
+                .buttonStyle(.plain)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
