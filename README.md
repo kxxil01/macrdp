@@ -1,48 +1,128 @@
-# mac-rdp (Swift + FreeRDP)
+# Mac RDP
 
-A minimal native macOS RDP client built with SwiftUI on top of FreeRDP. It connects to a Windows host over RDP/TLS with keyboard/mouse input and a software-rendered framebuffer.
+A native macOS RDP client built with SwiftUI and FreeRDP. Connect to Windows hosts with a clean, modern interface.
+
+![macOS](https://img.shields.io/badge/macOS-13%2B-blue)
+![Swift](https://img.shields.io/badge/Swift-5.9-orange)
+![License](https://img.shields.io/badge/License-MIT-green)
+
+## Features
+
+- **Connection Management**: Save connections, import .rdp files, auto-reconnect
+- **Full Input Support**: Mouse, keyboard, scroll wheel, modifier keys
+- **Clipboard Sharing**: Bidirectional copy/paste between Mac and Windows
+- **Drive Redirection**: Share local folders with remote Windows session
+- **Modern UI**: Dark mode, collapsible sidebar, fullscreen support
+- **Resolution Presets**: Quick-select 720p, 1080p, 1440p
+
+## Screenshots
+
+Screenshots coming soon.
 
 ## Requirements
 
-- macOS 13+ (deployment target)
-- Xcode 15+ / Swift 5.9 toolchain
-- Homebrew `freerdp` 3.x (and `pkg-config`): `brew install freerdp pkg-config`
+- macOS 13+
+- Xcode 15+ / Swift 5.9
+- FreeRDP 3.x
 
-## Running
+## Quick Start
 
-```bash
-swift run MacRDP
-```
-
-If you are prompted that `pkg-config` cannot find `freerdp3`, ensure Homebrew's pkgconfig path is visible:
+### Basic Installation (Homebrew)
 
 ```bash
+# Install dependencies
+brew install freerdp pkg-config
+
+# Clone and run
+git clone https://github.com/kxxil01/macrdp.git
+cd macrdp
 export PKG_CONFIG_PATH="$(brew --prefix)/lib/pkgconfig"
 swift run MacRDP
 ```
 
-The package also adds fallback include/lib search paths for Homebrew in `/opt/homebrew` (Apple Silicon) and `/usr/local` (Intel), but `pkg-config` is still recommended so SPM can find `freerdp3`.
+### Advanced Installation (Full Features)
 
-### macOS SDK notes
+For clipboard sharing and drive redirection, build FreeRDP from source:
 
-Homebrew builds `freerdp3` for the latest macOS (often 15). When targeting macOS 13 you may see linker warnings about newer-built dylibs. Options:
+```bash
+# Remove Homebrew version
+brew uninstall freerdp
 
-- Ignore the warnings (works in practice).
-- Rebuild FreeRDP against your target SDK; or if you exclusively target newer macOS, bump `platforms` in `Package.swift` once your SwiftPM toolchain supports `.macOS(.v15)`.
+# Build FreeRDP with dynamic channels
+git clone https://github.com/FreeRDP/FreeRDP.git /tmp/freerdp-build
+cd /tmp/freerdp-build && mkdir build && cd build
+cmake .. -DCMAKE_INSTALL_PREFIX=/opt/homebrew -DBUILTIN_CHANNELS=OFF
+make -j$(sysctl -n hw.ncpu) && sudo make install
 
-## Features
+# Run Mac RDP
+cd /path/to/macrdp
+export PKG_CONFIG_PATH="/opt/homebrew/lib/pkgconfig"
+swift run MacRDP
+```
 
-- Host/port, username/password, optional domain
-- NLA toggle, optional GFX pipeline toggle
-- Software GDI rendering; frames presented via CGImage
-- Basic mouse (left/right/middle, drag) and keyboard (US layout) input
+## Keyboard Shortcuts
 
-## Limitations
+### Mac App Shortcuts
 
-- Accepts all server certificates (no prompt/validation)
-- Keyboard mapping is minimal (US layout; common keys only); no IME
-- No clipboard, audio, multi-monitor, wheel/gesture support, or gateway support
+| Shortcut | Action |
+|----------|--------|
+| `Cmd+Shift+S` | Toggle sidebar |
+| `Cmd+O` | Import .rdp file |
+| `Cmd+Return` | Connect |
+| `Cmd+Shift+D` | Disconnect |
+| `Cmd+Ctrl+F` | Toggle fullscreen |
+| `Esc` | Exit fullscreen |
 
-## Notes
+### In RDP Session (Windows)
 
-The C shim wraps FreeRDP (`Sources/CRDP`) and emits BGRA frames to Swift. The SwiftUI shell (`Sources/MacRDP`) handles UI, image presentation, and input translation. This is an MVP; expect to harden security, input mapping, and channel support before shipping.
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+C` | Copy |
+| `Ctrl+V` | Paste |
+| `Ctrl+X` | Cut |
+| `Ctrl+A` | Select All |
+| `Ctrl+Z` | Undo |
+
+## Architecture
+
+```text
+Sources/
+├── CFREERDP/           # System library target (pkg-config)
+├── CRDP/               # C shim wrapping FreeRDP
+│   ├── include/        # Public headers
+│   ├── crdp.c          # FreeRDP wrapper, channel handlers
+│   └── clipboard_mac.m # macOS clipboard bridge
+└── MacRDP/             # SwiftUI application
+    ├── MacRDPApp.swift
+    ├── ContentView.swift
+    ├── RdpCanvasView.swift
+    ├── RdpSession.swift
+    └── ConnectionStore.swift
+```
+
+## Roadmap
+
+- [x] Connection history/favorites
+- [x] Password persistence
+- [x] Fullscreen mode
+- [x] Mouse wheel scrolling
+- [x] Import .rdp files
+- [x] Drive redirection
+- [x] Clipboard sharing
+- [ ] Keychain password storage
+- [ ] Certificate validation UI
+- [ ] Audio redirection
+- [ ] Multi-monitor support
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+## Acknowledgments
+
+- [FreeRDP](https://www.freerdp.com/) - The RDP protocol implementation
+- Built with SwiftUI and AppKit
