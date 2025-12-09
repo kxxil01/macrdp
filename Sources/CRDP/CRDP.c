@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 
 // External functions from clipboard_mac.m
 extern char* crdp_clipboard_get_text(void);
@@ -49,6 +50,10 @@ struct crdp_client {
     pthread_t thread;
     bool stop;
     bool connected;
+    // Frame timing for RTT estimation
+    uint64_t last_frame_time;
+    uint64_t frame_interval_sum;
+    uint32_t frame_count;
 };
 
 static void crdp_free_config(crdp_config_t* cfg) {
@@ -79,6 +84,12 @@ static BOOL crdp_begin_paint(rdpContext* context) {
     return ok;
 }
 
+static uint64_t get_time_ms(void) {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (uint64_t)tv.tv_sec * 1000 + (uint64_t)tv.tv_usec / 1000;
+}
+
 static BOOL crdp_end_paint(rdpContext* context) {
     crdp_context* ctx = (crdp_context*)context;
     rdpGdi* gdi = context->gdi;
@@ -88,6 +99,18 @@ static BOOL crdp_end_paint(rdpContext* context) {
     }
 
     if (gdi && ctx->client && ctx->client->frame_cb) {
+        // Track frame timing for latency estimation
+        uint64_t now = get_time_ms();
+        if (ctx->client->last_frame_time > 0) {
+            uint64_t interval = now - ctx->client->last_frame_time;
+            // Only count intervals under 1 second (ignore idle periods)
+            if (interval < 1000) {
+                ctx->client->frame_interval_sum += interval;
+                ctx->client->frame_count++;
+            }
+        }
+        ctx->client->last_frame_time = now;
+        
         ctx->client->frame_cb(gdi->primary_buffer,
                               (UINT32)gdi->width,
                               (UINT32)gdi->height,
@@ -703,14 +726,25 @@ int32_t crdp_get_rtt_ms(crdp_client_t* client) {
     rdpContext* context = client->instance->context;
     if (!context) return -1;
     
+    // Try FreeRDP autodetect first
     rdpAutoDetect* autodetect = context->autodetect;
     if (autodetect && autodetect->netCharAverageRTT > 0) {
         return (int32_t)autodetect->netCharAverageRTT;
     }
     
-    // Fallback: use base RTT if average not available
     if (autodetect && autodetect->netCharBaseRTT > 0) {
         return (int32_t)autodetect->netCharBaseRTT;
+    }
+    
+    // Fallback: use frame timing as a proxy for responsiveness
+    // Average frame interval gives an indication of connection health
+    if (client->frame_count > 5) {
+        uint32_t avg_interval = (uint32_t)(client->frame_interval_sum / client->frame_count);
+        // Reset counters for next measurement window
+        client->frame_interval_sum = 0;
+        client->frame_count = 0;
+        // Return average frame interval as latency proxy (capped at 500ms)
+        return avg_interval < 500 ? (int32_t)avg_interval : 500;
     }
     
     return -1;
