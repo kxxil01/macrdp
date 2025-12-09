@@ -119,6 +119,11 @@ struct ContentView: View {
         }
     }
 
+    private var isConnecting: Bool {
+        if case .connecting = session.state { return true }
+        return false
+    }
+
     private var canvasArea: some View {
         ZStack {
             canvasBackground
@@ -126,6 +131,8 @@ struct ContentView: View {
             if session.frame != nil {
                 RdpCanvasView(session: session)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if isConnecting {
+                connectingView
             } else {
                 emptyStateView
             }
@@ -148,6 +155,32 @@ struct ContentView: View {
                 .padding(12)
                 Spacer()
             }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var connectingView: some View {
+        VStack(spacing: 20) {
+            ProgressView()
+                .scaleEffect(1.5)
+                .progressViewStyle(CircularProgressViewStyle(tint: .accentColor))
+            
+            VStack(spacing: 8) {
+                Text("Connecting to \(host)")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(.primary)
+                
+                Text("Establishing secure connection...")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+            }
+            
+            Button("Cancel") {
+                session.disconnect()
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .padding(.top, 8)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
