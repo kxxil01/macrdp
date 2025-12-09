@@ -34,6 +34,18 @@ struct MacRDPApp: App {
                     NotificationCenter.default.post(name: .importRdpFile, object: nil)
                 }
                 .keyboardShortcut("o", modifiers: [.command])
+                
+                Divider()
+                
+                Button("Export Connections...") {
+                    NotificationCenter.default.post(name: .exportConnections, object: nil)
+                }
+                .keyboardShortcut("e", modifiers: [.command, .shift])
+                
+                Button("Import Connections...") {
+                    NotificationCenter.default.post(name: .importConnections, object: nil)
+                }
+                .keyboardShortcut("i", modifiers: [.command, .shift])
 
                 Divider()
 
@@ -81,4 +93,6 @@ extension Notification.Name {
     static let disconnect = Notification.Name("disconnect")
     static let toggleFullscreen = Notification.Name("toggleFullscreen")
     static let clearAllData = Notification.Name("clearAllData")
+    static let exportConnections = Notification.Name("exportConnections")
+    static let importConnections = Notification.Name("importConnections")
 }

@@ -189,4 +189,60 @@ final class ConnectionStore: ObservableObject {
         // Sync UserDefaults
         UserDefaults.standard.synchronize()
     }
+    
+    /// Export connections to JSON data (without passwords)
+    func exportToJSON() -> Data? {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        return try? encoder.encode(connections)
+    }
+    
+    /// Import connections from JSON data, merging with existing
+    func importFromJSON(_ data: Data) -> Int {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        
+        guard let imported = try? decoder.decode([SavedConnection].self, from: data) else {
+            return 0
+        }
+        
+        var addedCount = 0
+        for conn in imported {
+            // Check if connection already exists (same host, port, username)
+            let exists = connections.contains { existing in
+                existing.host == conn.host &&
+                existing.port == conn.port &&
+                existing.username == conn.username
+            }
+            
+            if !exists {
+                // Create new connection with new UUID to avoid conflicts
+                let newConn = SavedConnection(
+                    id: UUID(),
+                    name: conn.name,
+                    host: conn.host,
+                    port: conn.port,
+                    username: conn.username,
+                    password: "", // Passwords not exported
+                    domain: conn.domain,
+                    width: conn.width,
+                    height: conn.height,
+                    enableNLA: conn.enableNLA,
+                    allowGFX: conn.allowGFX,
+                    lastUsed: conn.lastUsed,
+                    sharedFolderPath: conn.sharedFolderPath,
+                    sharedFolderName: conn.sharedFolderName,
+                    timeoutSeconds: conn.timeoutSeconds
+                )
+                connections.append(newConn)
+                addedCount += 1
+            }
+        }
+        
+        if addedCount > 0 {
+            persist()
+        }
+        return addedCount
+    }
 }

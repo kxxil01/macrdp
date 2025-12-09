@@ -195,13 +195,17 @@ make -j$(sysctl -n hw.ncpu) && sudo make install
   - Clears saved connections from UserDefaults
   - Removes trusted certificates
   - Confirmation dialog before deletion
+- [x] Export/Import connections: Connection menu → Export/Import Connections
+  - Export to JSON file (Cmd+Shift+E)
+  - Import from JSON file (Cmd+Shift+I)
+  - Passwords not included for security
+  - Duplicate detection on import
 
 ### Planned
 
 #### High Priority (Functionality)
 
 - [ ] **Dynamic resolution**: Auto-resize remote desktop when window resizes (uses DisplayControl channel)
-- [ ] **Export/Import connections**: Backup connections to JSON file for migration (without passwords)
 
 #### Medium Priority (UX)
 

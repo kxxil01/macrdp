@@ -27,6 +27,8 @@ struct ContentView: View {
     @State private var sharedFolderName = "Mac"
     @State private var timeoutSeconds: UInt32 = 30
     @State private var showClearDataAlert = false
+    @State private var importResult: String?
+    @State private var showImportResultAlert = false
 
     private let sidebarWidth: CGFloat = 300
     private let timeoutOptions: [(String, UInt32)] = [
@@ -128,6 +130,12 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .clearAllData)) { _ in
             showClearDataAlert = true
         }
+        .onReceive(NotificationCenter.default.publisher(for: .exportConnections)) { _ in
+            exportConnections()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .importConnections)) { _ in
+            importConnectionsFromFile()
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.willEnterFullScreenNotification)) { _ in
             isFullscreen = true
             sidebarHoverArea = false
@@ -156,6 +164,11 @@ struct ContentView: View {
             }
         } message: {
             Text("This will permanently delete all saved connections, passwords, and trusted certificates. This cannot be undone.")
+        }
+        .alert("Import Connections", isPresented: $showImportResultAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(importResult ?? "")
         }
         .sheet(item: $session.pendingCertificate) { cert in
             CertificateSheet(cert: cert, session: session)
@@ -967,6 +980,51 @@ struct ContentView: View {
         if let w = newWidth { width = w }
         if let h = newHeight { height = h }
         if let nla = newNLA { enableNLA = nla }
+    }
+    
+    private func exportConnections() {
+        guard let data = connectionStore.exportToJSON() else { return }
+        
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "macrdp-connections.json"
+        panel.message = "Export connections (passwords are not included)"
+        panel.prompt = "Export"
+        
+        let response = panel.runModal()
+        guard response == .OK, let url = panel.url else { return }
+        
+        do {
+            try data.write(to: url)
+        } catch {
+            print("Failed to export connections: \(error)")
+        }
+    }
+    
+    private func importConnectionsFromFile() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.message = "Select a JSON file to import connections"
+        panel.prompt = "Import"
+        
+        let response = panel.runModal()
+        guard response == .OK, let url = panel.url else { return }
+        
+        do {
+            let data = try Data(contentsOf: url)
+            let count = connectionStore.importFromJSON(data)
+            if count > 0 {
+                importResult = "Successfully imported \(count) connection\(count == 1 ? "" : "s"). Passwords need to be re-entered."
+            } else {
+                importResult = "No new connections imported. All connections already exist or file is invalid."
+            }
+            showImportResultAlert = true
+        } catch {
+            importResult = "Failed to read file: \(error.localizedDescription)"
+            showImportResultAlert = true
+        }
     }
 }
 
