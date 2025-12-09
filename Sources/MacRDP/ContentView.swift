@@ -26,6 +26,7 @@ struct ContentView: View {
     @State private var sharedFolderPath = ""
     @State private var sharedFolderName = "Mac"
     @State private var timeoutSeconds: UInt32 = 30
+    @State private var showClearDataAlert = false
 
     private let sidebarWidth: CGFloat = 300
     private let timeoutOptions: [(String, UInt32)] = [
@@ -124,6 +125,9 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .toggleFullscreen)) { _ in
             toggleFullscreen()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .clearAllData)) { _ in
+            showClearDataAlert = true
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.willEnterFullScreenNotification)) { _ in
             isFullscreen = true
             sidebarHoverArea = false
@@ -136,6 +140,22 @@ struct ContentView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(validationError ?? "Please fill in all required fields")
+        }
+        .alert("Clear All Data", isPresented: $showClearDataAlert) {
+            Button("Cancel", role: .cancel) {}
+            Button("Clear All", role: .destructive) {
+                connectionStore.clearAllData()
+                // Reset form fields
+                host = ""
+                port = "3389"
+                username = ""
+                password = ""
+                domain = ""
+                sharedFolderPath = ""
+                sharedFolderName = "Mac"
+            }
+        } message: {
+            Text("This will permanently delete all saved connections, passwords, and trusted certificates. This cannot be undone.")
         }
         .sheet(item: $session.pendingCertificate) { cert in
             CertificateSheet(cert: cert, session: session)

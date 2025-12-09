@@ -190,12 +190,16 @@ make -j$(sysctl -n hw.ncpu) && sudo make install
 - [x] Fullscreen improvements
   - Sidebar overlays instead of pushing content
   - No sidebar hover when connected (use disconnect button instead)
+- [x] Clear all data option: Connection menu → Clear All Data
+  - Removes all Keychain passwords
+  - Clears saved connections from UserDefaults
+  - Removes trusted certificates
+  - Confirmation dialog before deletion
 
 ### Planned
 
 #### High Priority (Functionality)
 
-- [ ] **Clear all data option**: Remove Keychain passwords, UserDefaults, trusted certs for clean uninstall
 - [ ] **Dynamic resolution**: Auto-resize remote desktop when window resizes (uses DisplayControl channel)
 - [ ] **Export/Import connections**: Backup connections to JSON file for migration (without passwords)
 

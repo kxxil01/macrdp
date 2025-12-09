@@ -53,6 +53,12 @@ struct MacRDPApp: App {
                     NotificationCenter.default.post(name: .toggleFullscreen, object: nil)
                 }
                 .keyboardShortcut("f", modifiers: [.command, .control])
+                
+                Divider()
+                
+                Button("Clear All Data...") {
+                    NotificationCenter.default.post(name: .clearAllData, object: nil)
+                }
             }
         }
     }
@@ -74,4 +80,5 @@ extension Notification.Name {
     static let connect = Notification.Name("connect")
     static let disconnect = Notification.Name("disconnect")
     static let toggleFullscreen = Notification.Name("toggleFullscreen")
+    static let clearAllData = Notification.Name("clearAllData")
 }

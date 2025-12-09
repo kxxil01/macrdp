@@ -170,4 +170,23 @@ final class ConnectionStore: ObservableObject {
         guard let encoded = try? JSONEncoder().encode(connections) else { return }
         UserDefaults.standard.set(encoded, forKey: storageKey)
     }
+    
+    /// Clears all app data: connections, Keychain passwords, trusted certificates
+    func clearAllData() {
+        // Delete all Keychain passwords
+        KeychainService.deleteAllPasswords()
+        
+        // Clear connections from UserDefaults
+        connections.removeAll()
+        UserDefaults.standard.removeObject(forKey: storageKey)
+        
+        // Clear trusted certificates
+        UserDefaults.standard.removeObject(forKey: "trustedCertificates")
+        
+        // Clear migration flag (in case user wants fresh start)
+        UserDefaults.standard.removeObject(forKey: "passwordsMigratedToKeychain")
+        
+        // Sync UserDefaults
+        UserDefaults.standard.synchronize()
+    }
 }
