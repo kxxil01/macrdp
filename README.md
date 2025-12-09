@@ -2,18 +2,20 @@
 
 A native macOS RDP client built with SwiftUI and FreeRDP. Connect to Windows hosts with a clean, modern interface.
 
-![macOS](https://img.shields.io/badge/macOS-13%2B-blue)
+![macOS](https://img.shields.io/badge/macOS-14%2B-blue)
 ![Swift](https://img.shields.io/badge/Swift-5.9-orange)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 ## Features
 
-- **Connection Management**: Save connections, import .rdp files, auto-reconnect
-- **Full Input Support**: Mouse, keyboard, scroll wheel, modifier keys
+- **Connection Management**: Save connections, import .rdp files, secure Keychain password storage
+- **Full Input Support**: Mouse, keyboard, scroll wheel, modifier keys, keyboard capture mode
 - **Clipboard Sharing**: Bidirectional copy/paste between Mac and Windows
 - **Drive Redirection**: Share local folders with remote Windows session
-- **Modern UI**: Dark mode, collapsible sidebar, fullscreen support
+- **Certificate Validation**: View certificate details, accept once or always trust
+- **Modern UI**: Dark mode, collapsible sidebar, fullscreen support, connection health indicator
 - **Resolution Presets**: Quick-select 720p, 1080p, 1440p
+- **Session Management**: Graceful disconnect handling, reconnect support
 
 ## Screenshots
 
@@ -21,7 +23,7 @@ Screenshots coming soon.
 
 ## Requirements
 
-- macOS 13+
+- macOS 14+ (Sonoma)
 - Xcode 15+ / Swift 5.9
 - FreeRDP 3.x
 
@@ -102,15 +104,24 @@ Sources/
 
 ## Roadmap
 
-- [x] Connection history/favorites
-- [x] Password persistence
-- [x] Fullscreen mode
-- [x] Mouse wheel scrolling
+### Completed
+
+- [x] Connection history/favorites with Keychain password storage
+- [x] Fullscreen mode with auto-hiding sidebar
+- [x] Mouse wheel scrolling (vertical + horizontal)
 - [x] Import .rdp files
-- [x] Drive redirection
-- [x] Clipboard sharing
-- [ ] Keychain password storage
-- [ ] Certificate validation UI
+- [x] Drive redirection (share local folders)
+- [x] Clipboard sharing (bidirectional)
+- [x] Certificate validation UI
+- [x] Connection health indicator (RTT display)
+- [x] Export/Import connections
+- [x] Session disconnect handling with reconnect
+- [x] Keyboard capture mode (Cmd+Tab, Cmd+Space, etc.)
+
+### Planned
+
+- [ ] Custom resolution input
+- [ ] Auto-reconnect on connection drop
 - [ ] Audio redirection
 - [ ] Multi-monitor support
 

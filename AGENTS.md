@@ -98,7 +98,7 @@ Sources/
 
 - **FreeRDP 3.x**: RDP protocol implementation (via Homebrew)
 - **pkg-config**: Build-time dependency resolution
-- **macOS 13+**: Minimum deployment target
+- **macOS 14+**: Minimum deployment target (Sonoma)
 
 ## Build & Run
 
@@ -207,12 +207,23 @@ make -j$(sysctl -n hw.ncpu) && sudo make install
   - Collapsible File Sharing section
   - Consistent styling with solid backgrounds and 8px border radius
   - 20px section spacing, 12px internal padding
+- [x] Session disconnect handling: Graceful handling when Windows logs out or session ends remotely
+  - Detects disconnect reason: logoff, idle timeout, admin disconnect, network error, server closed
+  - Shows descriptive message in status bar with appropriate color coding
+  - Reconnect button appears for non-user-initiated disconnects
+- [x] Keyboard capture mode: Capture system shortcuts and forward to Windows
+  - Toggle in Options section to enable/disable
+  - Captures Cmd+Tab, Cmd+Space, Cmd+H, Cmd+M, Cmd+Q, Ctrl+arrows
+  - Requires Accessibility permission (prompts user if not granted)
+  - Auto-starts on connect when enabled, stops on disconnect
 
 ### Planned
 
 #### High Priority (Functionality)
 
-- [ ] **Dynamic resolution**: Auto-resize remote desktop when window resizes (uses DisplayControl channel)
+- [ ] **Custom resolution input**: Allow manual entry of custom dimensions (e.g., 1600×900) instead of only presets
+- [ ] **Connection error recovery**: Auto-reconnect with exponential backoff when connection drops mid-session
+- [ ] **Remember last settings**: Persist last used host, resolution, NLA setting per saved connection
 
 #### Medium Priority (UX)
 

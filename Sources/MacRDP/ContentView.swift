@@ -29,6 +29,8 @@ struct ContentView: View {
     @State private var showClearDataAlert = false
     @State private var importResult: String?
     @State private var showImportResultAlert = false
+    @State private var enableKeyboardCapture = false
+    @StateObject private var keyboardCapture = KeyboardCaptureManager.shared
 
     private let sidebarWidth: CGFloat = 300
     private let timeoutOptions: [(String, UInt32)] = [
@@ -122,6 +124,15 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .disconnect)) { _ in
             if isConnected {
                 session.disconnect()
+                keyboardCapture.stopCapturing()
+            }
+        }
+        .onChange(of: session.state) { _, newState in
+            // Stop keyboard capture when disconnected
+            if case .disconnected = newState {
+                keyboardCapture.stopCapturing()
+            } else if case .disconnectedWithReason = newState {
+                keyboardCapture.stopCapturing()
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .toggleFullscreen)) { _ in
@@ -173,7 +184,7 @@ struct ContentView: View {
         .sheet(item: $session.pendingCertificate) { cert in
             CertificateSheet(cert: cert, session: session)
         }
-        .onChange(of: isConnected) { connected in
+        .onChange(of: isConnected) { _, connected in
             // Auto-collapse sidebar when connected, show when disconnected
             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                 showSidebar = !connected
@@ -590,6 +601,29 @@ struct ContentView: View {
                     .controlSize(.small)
                     .labelsHidden()
             }
+            
+            // Keyboard capture toggle
+            HStack {
+                Image(systemName: "keyboard")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 20)
+                
+                Text("Capture Keyboard")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.primary)
+                
+                Spacer()
+                
+                Toggle("", isOn: $enableKeyboardCapture)
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                    .labelsHidden()
+                    .onChange(of: enableKeyboardCapture) { _, newValue in
+                        handleKeyboardCaptureToggle(newValue)
+                    }
+            }
+            .help("Capture system shortcuts (Cmd+Tab, Cmd+Space) and forward to Windows")
             
             // Timeout picker
             HStack {
@@ -1032,6 +1066,12 @@ struct ContentView: View {
     private var statusColor: Color {
         switch session.state {
         case .disconnected: return .secondary
+        case .disconnectedWithReason(let reason):
+            switch reason {
+            case .user: return .secondary
+            case .logoff, .idle: return .orange
+            case .network, .server, .admin, .connectFailed, .unknown: return .red
+            }
         case .connecting: return .orange
         case .connected: return .green
         case .failed: return .red
@@ -1041,6 +1081,7 @@ struct ContentView: View {
     private var statusText: String {
         switch session.state {
         case .disconnected: return "Disconnected"
+        case .disconnectedWithReason(let reason): return reason.message
         case .connecting: return "Connecting…"
         case .connected: return "Connected"
         case .failed(let reason): return "Failed: \(reason)"
@@ -1083,6 +1124,18 @@ struct ContentView: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(.blue)
                 .help("Retry connection")
+            }
+            
+            if case .disconnectedWithReason(let reason) = session.state, reason != .user {
+                Button {
+                    connect()
+                } label: {
+                    Text("Reconnect")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.blue)
+                .help("Reconnect to server")
             }
         }
         .padding(.horizontal, 12)
@@ -1218,6 +1271,23 @@ struct ContentView: View {
             sharedFolderName: sharedFolderName.isEmpty ? nil : sharedFolderName,
             timeoutSeconds: timeoutSeconds
         )
+        
+        // Start keyboard capture if enabled
+        if enableKeyboardCapture {
+            keyboardCapture.startCapturing(session: session)
+        }
+    }
+    
+    private func handleKeyboardCaptureToggle(_ enabled: Bool) {
+        if enabled {
+            if case .connected = session.state {
+                keyboardCapture.startCapturing(session: session)
+            } else if !keyboardCapture.hasAccessibilityPermission {
+                keyboardCapture.requestAccessibilityPermission()
+            }
+        } else {
+            keyboardCapture.stopCapturing()
+        }
     }
 
     private func importRdpFile() {

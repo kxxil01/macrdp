@@ -4,8 +4,33 @@ import CoreGraphics
 import Darwin
 import CRDP
 
+enum RdpDisconnectReason: Int32 {
+    case user = 0
+    case server = 1
+    case network = 2
+    case logoff = 3
+    case idle = 4
+    case admin = 5
+    case connectFailed = 6
+    case unknown = 99
+    
+    var message: String {
+        switch self {
+        case .user: return "Disconnected"
+        case .server: return "Server closed the connection"
+        case .network: return "Network connection lost"
+        case .logoff: return "Session ended (logged off)"
+        case .idle: return "Session timed out due to inactivity"
+        case .admin: return "Disconnected by administrator"
+        case .connectFailed: return "Connection failed"
+        case .unknown: return "Connection lost"
+        }
+    }
+}
+
 enum RdpConnectionState: Equatable {
     case disconnected
+    case disconnectedWithReason(RdpDisconnectReason)
     case connecting
     case connected
     case failed(String)
@@ -187,7 +212,7 @@ final class RdpSession: ObservableObject {
         }
     }
 
-    private func handleDisconnected() {
+    private func handleDisconnected(reason: Int32) {
         // Clean up client resources on remote disconnect
         // Only free if client hasn't been cleared by disconnect() already
         if let client = client {
@@ -196,10 +221,20 @@ final class RdpSession: ObservableObject {
             crdp_client_free(client)
         }
         
+        let disconnectReason = RdpDisconnectReason(rawValue: reason) ?? .unknown
+        
         DispatchQueue.main.async {
+            self.stopRttTimer()
             self.frame = nil
             self.remoteSize = .zero
-            self.state = .disconnected
+            self.rttMs = -1
+            
+            // Show reason if it's not a user-initiated disconnect
+            if disconnectReason == .user {
+                self.state = .disconnected
+            } else {
+                self.state = .disconnectedWithReason(disconnectReason)
+            }
         }
     }
     
@@ -275,10 +310,10 @@ private extension RdpSession {
         session.handleFrame(data: data, width: width, height: height, stride: stride)
     }
 
-    static let disconnectThunk: @convention(c) (UnsafeMutableRawPointer?) -> Void = { user in
+    static let disconnectThunk: @convention(c) (crdp_disconnect_reason_t, UnsafeMutableRawPointer?) -> Void = { reason, user in
         guard let user else { return }
         let session = Unmanaged<RdpSession>.fromOpaque(user).takeUnretainedValue()
-        session.handleDisconnected()
+        session.handleDisconnected(reason: Int32(reason.rawValue))
     }
     
     static let certThunk: @convention(c) (UnsafePointer<crdp_cert_info_t>?, UnsafeMutableRawPointer?) -> Int32 = { cert, user in
