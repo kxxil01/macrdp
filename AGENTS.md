@@ -184,9 +184,12 @@ make -j$(sysctl -n hw.ncpu) && sudo make install
 - [x] Secure password storage: Use macOS Keychain instead of UserDefaults
   - Automatic migration from old UserDefaults storage
   - Passwords persist after app deletion (stored in system Keychain)
-- [x] Connection health indicator: Show latency/RTT in toolbar during active session
+- [x] Connection health indicator: Show latency/RTT next to "Connected" status
   - Color-coded: Green (<50ms), Yellow (50-100ms), Orange (100-200ms), Red (>200ms)
-  - Updates every 2 seconds
+  - Uses frame timing as fallback when server doesn't provide RTT
+- [x] Fullscreen improvements
+  - Sidebar overlays instead of pushing content
+  - No sidebar hover when connected (use disconnect button instead)
 
 ### Planned
 
