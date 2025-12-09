@@ -248,14 +248,13 @@ static UINT crdp_cliprdr_server_format_data_request(CliprdrClientContext* cliprd
     crdp_context* ctx = (crdp_context*)cliprdr->custom;
     if (!ctx) return ERROR_INTERNAL_ERROR;
     
-    fprintf(stderr, "[CRDP] Server requesting clipboard data, format=%u\n", req->requestedFormatId);
+    WLog_DBG(CRDP_TAG, "Server requesting clipboard data, format=%u", req->requestedFormatId);
     
     CLIPRDR_FORMAT_DATA_RESPONSE response = { 0 };
     
     // CF_UNICODETEXT = 13, CF_TEXT = 1
     if (req->requestedFormatId == 13 || req->requestedFormatId == 1) {
         char* text = crdp_clipboard_get_text();
-        fprintf(stderr, "[CRDP] Local clipboard text: %s\n", text ? text : "(null)");
         if (text) {
             size_t len = strlen(text);
             // Convert to UTF-16LE for CF_UNICODETEXT
@@ -344,7 +343,7 @@ static void crdp_local_clipboard_changed(void* context) {
     crdp_context* ctx = (crdp_context*)context;
     if (!ctx || !ctx->cliprdr || !ctx->clipboardSync) return;
     
-    fprintf(stderr, "[CRDP] Local clipboard changed, notifying server\n");
+    WLog_DBG(CRDP_TAG, "Local clipboard changed, notifying server");
     crdp_cliprdr_send_client_format_list(ctx->cliprdr);
 }
 
