@@ -1,5 +1,6 @@
 #include "CRDP.h"
 
+#include <freerdp/addin.h>
 #include <freerdp/client/channels.h>
 #include <freerdp/client/cmdline.h>
 #include <freerdp/client/rdpdr.h>
@@ -293,6 +294,11 @@ int crdp_client_connect(crdp_client_t* client, const crdp_config_t* config) {
     instance->ContextSize = sizeof(crdp_context);
     instance->ContextNew = crdp_context_new;
     instance->ContextFree = crdp_context_free;
+
+    // Register static channel addin provider - this enables built-in channels
+    // like rdpdr (drive redirection) and cliprdr (clipboard) to be loaded
+    // without requiring separate .dylib plugin files
+    freerdp_register_addin_provider(freerdp_channels_load_static_addin_entry, 0);
 
     if (!freerdp_context_new(instance)) {
         freerdp_free(instance);
