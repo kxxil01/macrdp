@@ -22,14 +22,10 @@ struct ContentView: View {
 
     private let sidebarWidth: CGFloat = 300
 
-    private var shouldShowSidebarInFullscreen: Bool {
-        !isConnected || sidebarHoverArea
-    }
-
     var body: some View {
         ZStack(alignment: .leading) {
             HStack(spacing: 0) {
-                if showSidebar && (!isFullscreen || shouldShowSidebarInFullscreen) {
+                if showSidebar {
                     sidebar
                         .frame(width: sidebarWidth)
                         .background(isFullscreen ? .ultraThinMaterial : .regularMaterial)
@@ -48,14 +44,17 @@ struct ContentView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            // Hover area to reveal sidebar when connected in fullscreen
-            if isFullscreen && isConnected && !sidebarHoverArea {
+            // Hover area to reveal sidebar when hidden in fullscreen
+            if isFullscreen && !showSidebar {
                 Color.clear
                     .frame(width: 20)
+                    .frame(maxHeight: .infinity)
                     .contentShape(Rectangle())
                     .onHover { hovering in
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            sidebarHoverArea = hovering
+                        if hovering {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                showSidebar = true
+                            }
                         }
                     }
             }
@@ -125,11 +124,9 @@ struct ContentView: View {
 
             VStack {
                 HStack {
-                    if !isFullscreen {
-                        sidebarToggle
-                    }
+                    sidebarToggle
                     Spacer()
-                    if !showSidebar || isFullscreen {
+                    if !showSidebar {
                         floatingStatus
                     }
                     if isConnected {
