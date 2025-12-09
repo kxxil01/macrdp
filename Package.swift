@@ -43,7 +43,8 @@ let package = Package(
                 ]),
                 .linkedLibrary("freerdp-client3"),
                 .linkedLibrary("freerdp3"),
-                .linkedLibrary("winpr3")
+                .linkedLibrary("winpr3"),
+                .linkedFramework("AppKit")
             ]
         ),
         // SwiftUI executable that consumes the shim

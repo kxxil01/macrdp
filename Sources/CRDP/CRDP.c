@@ -2,11 +2,14 @@
 
 #include <freerdp/addin.h>
 #include <freerdp/client/channels.h>
+#include <freerdp/client/cliprdr.h>
 #include <freerdp/client/cmdline.h>
 #include <freerdp/client/rdpdr.h>
 #include <freerdp/crypto/crypto.h>
 #include <freerdp/gdi/gdi.h>
 #include <freerdp/locale/keyboard.h>
+#include <freerdp/channels/channels.h>
+#include <winpr/clipboard.h>
 #include <winpr/thread.h>
 #include <winpr/wlog.h>
 
@@ -15,6 +18,10 @@
 #include <string.h>
 #include <sys/stat.h>
 
+// External functions from clipboard_mac.m
+extern char* crdp_clipboard_get_text(void);
+extern int crdp_clipboard_set_text(const char* text);
+
 static const char* CRDP_TAG = "CRDP";
 
 typedef struct {
@@ -22,6 +29,10 @@ typedef struct {
     struct crdp_client* client;
     pBeginPaint prev_begin_paint;
     pEndPaint prev_end_paint;
+    CliprdrClientContext* cliprdr;
+    wClipboard* clipboard;
+    UINT32 clipboardCapabilities;
+    BOOL clipboardSync;
 } crdp_context;
 
 struct crdp_client {
@@ -127,6 +138,252 @@ static DWORD crdp_verify_changed_certificate_ex(freerdp* instance,
     return 2; // accept for this session
 }
 
+// Clipboard callbacks
+static UINT crdp_cliprdr_send_client_format_list(CliprdrClientContext* cliprdr) {
+    crdp_context* ctx = (crdp_context*)cliprdr->custom;
+    if (!ctx) return ERROR_INTERNAL_ERROR;
+    
+    // Always advertise text formats
+    CLIPRDR_FORMAT formats[2] = { 0 };
+    formats[0].formatId = 13; // CF_UNICODETEXT
+    formats[0].formatName = NULL;
+    formats[1].formatId = 1;  // CF_TEXT
+    formats[1].formatName = NULL;
+    
+    CLIPRDR_FORMAT_LIST formatList = { 0 };
+    formatList.common.msgFlags = 0;
+    formatList.numFormats = 2;
+    formatList.formats = formats;
+    
+    return cliprdr->ClientFormatList(cliprdr, &formatList);
+}
+
+static UINT crdp_cliprdr_send_client_format_list_response(CliprdrClientContext* cliprdr, BOOL status) {
+    CLIPRDR_FORMAT_LIST_RESPONSE response = { 0 };
+    response.common.msgFlags = status ? CB_RESPONSE_OK : CB_RESPONSE_FAIL;
+    return cliprdr->ClientFormatListResponse(cliprdr, &response);
+}
+
+static UINT crdp_cliprdr_send_client_capabilities(CliprdrClientContext* cliprdr) {
+    CLIPRDR_CAPABILITIES capabilities = { 0 };
+    CLIPRDR_GENERAL_CAPABILITY_SET generalCaps = { 0 };
+    
+    capabilities.cCapabilitiesSets = 1;
+    capabilities.capabilitySets = (CLIPRDR_CAPABILITY_SET*)&generalCaps;
+    
+    generalCaps.capabilitySetType = CB_CAPSTYPE_GENERAL;
+    generalCaps.capabilitySetLength = 12;
+    generalCaps.version = CB_CAPS_VERSION_2;
+    generalCaps.generalFlags = CB_USE_LONG_FORMAT_NAMES;
+    
+    return cliprdr->ClientCapabilities(cliprdr, &capabilities);
+}
+
+static UINT crdp_cliprdr_monitor_ready(CliprdrClientContext* cliprdr, const CLIPRDR_MONITOR_READY* ready) {
+    crdp_context* ctx = (crdp_context*)cliprdr->custom;
+    WLog_INFO(CRDP_TAG, "Clipboard monitor ready");
+    ctx->clipboardSync = TRUE;
+    crdp_cliprdr_send_client_capabilities(cliprdr);
+    return crdp_cliprdr_send_client_format_list(cliprdr);
+}
+
+static UINT crdp_cliprdr_server_capabilities(CliprdrClientContext* cliprdr, const CLIPRDR_CAPABILITIES* caps) {
+    crdp_context* ctx = (crdp_context*)cliprdr->custom;
+    for (UINT32 i = 0; i < caps->cCapabilitiesSets; i++) {
+        const CLIPRDR_CAPABILITY_SET* capSet = &caps->capabilitySets[i];
+        if (capSet->capabilitySetType == CB_CAPSTYPE_GENERAL) {
+            const CLIPRDR_GENERAL_CAPABILITY_SET* genCaps = (const CLIPRDR_GENERAL_CAPABILITY_SET*)capSet;
+            ctx->clipboardCapabilities = genCaps->generalFlags;
+        }
+    }
+    return CHANNEL_RC_OK;
+}
+
+static UINT crdp_cliprdr_server_format_list(CliprdrClientContext* cliprdr, const CLIPRDR_FORMAT_LIST* list) {
+    crdp_context* ctx = (crdp_context*)cliprdr->custom;
+    if (!ctx) return ERROR_INTERNAL_ERROR;
+    
+    WLog_DBG(CRDP_TAG, "Server sent format list with %u formats", list->numFormats);
+    
+    // Find a text format we can handle - prefer CF_UNICODETEXT over CF_TEXT
+    UINT32 textFormatId = 0;
+    for (UINT32 i = 0; i < list->numFormats; i++) {
+        const CLIPRDR_FORMAT* format = &list->formats[i];
+        // CF_UNICODETEXT = 13, CF_TEXT = 1 - prefer Unicode
+        if (format->formatId == 13) {
+            textFormatId = 13;
+        } else if (format->formatId == 1 && textFormatId == 0) {
+            textFormatId = 1;
+        }
+    }
+    
+    crdp_cliprdr_send_client_format_list_response(cliprdr, TRUE);
+    
+    // Request the text data from server
+    if (textFormatId != 0) {
+        WLog_DBG(CRDP_TAG, "Requesting clipboard data, format=%u", textFormatId);
+        CLIPRDR_FORMAT_DATA_REQUEST request = { 0 };
+        request.requestedFormatId = textFormatId;
+        cliprdr->ClientFormatDataRequest(cliprdr, &request);
+    }
+    
+    return CHANNEL_RC_OK;
+}
+
+static UINT crdp_cliprdr_server_format_list_response(CliprdrClientContext* cliprdr, const CLIPRDR_FORMAT_LIST_RESPONSE* resp) {
+    return CHANNEL_RC_OK;
+}
+
+static UINT crdp_cliprdr_server_lock_clipboard_data(CliprdrClientContext* cliprdr, const CLIPRDR_LOCK_CLIPBOARD_DATA* lock) {
+    return CHANNEL_RC_OK;
+}
+
+static UINT crdp_cliprdr_server_unlock_clipboard_data(CliprdrClientContext* cliprdr, const CLIPRDR_UNLOCK_CLIPBOARD_DATA* unlock) {
+    return CHANNEL_RC_OK;
+}
+
+static UINT crdp_cliprdr_server_format_data_request(CliprdrClientContext* cliprdr, const CLIPRDR_FORMAT_DATA_REQUEST* req) {
+    crdp_context* ctx = (crdp_context*)cliprdr->custom;
+    if (!ctx) return ERROR_INTERNAL_ERROR;
+    
+    WLog_DBG(CRDP_TAG, "Server requesting clipboard data, format=%u", req->requestedFormatId);
+    
+    CLIPRDR_FORMAT_DATA_RESPONSE response = { 0 };
+    
+    // CF_UNICODETEXT = 13, CF_TEXT = 1
+    if (req->requestedFormatId == 13 || req->requestedFormatId == 1) {
+        char* text = crdp_clipboard_get_text();
+        if (text) {
+            size_t len = strlen(text);
+            // Convert to UTF-16LE for CF_UNICODETEXT
+            if (req->requestedFormatId == 13) {
+                // Simple ASCII to UTF-16LE conversion (works for basic text)
+                size_t utf16_len = (len + 1) * 2;
+                uint8_t* utf16 = calloc(1, utf16_len);
+                if (utf16) {
+                    for (size_t i = 0; i <= len; i++) {
+                        utf16[i * 2] = (uint8_t)text[i];
+                        utf16[i * 2 + 1] = 0;
+                    }
+                    response.common.msgFlags = CB_RESPONSE_OK;
+                    response.common.dataLen = (UINT32)utf16_len;
+                    response.requestedFormatData = utf16;
+                    UINT rc = cliprdr->ClientFormatDataResponse(cliprdr, &response);
+                    free(utf16);
+                    free(text);
+                    return rc;
+                }
+            } else {
+                // CF_TEXT - send as-is with null terminator
+                response.common.msgFlags = CB_RESPONSE_OK;
+                response.common.dataLen = (UINT32)(len + 1);
+                response.requestedFormatData = (uint8_t*)text;
+                UINT rc = cliprdr->ClientFormatDataResponse(cliprdr, &response);
+                free(text);
+                return rc;
+            }
+            free(text);
+        }
+    }
+    
+    // No data available
+    response.common.msgFlags = CB_RESPONSE_FAIL;
+    response.common.dataLen = 0;
+    response.requestedFormatData = NULL;
+    return cliprdr->ClientFormatDataResponse(cliprdr, &response);
+}
+
+static UINT crdp_cliprdr_server_format_data_response(CliprdrClientContext* cliprdr, const CLIPRDR_FORMAT_DATA_RESPONSE* resp) {
+    crdp_context* ctx = (crdp_context*)cliprdr->custom;
+    if (!ctx) return ERROR_INTERNAL_ERROR;
+    
+    if (resp->common.msgFlags & CB_RESPONSE_OK && resp->requestedFormatData && resp->common.dataLen > 0) {
+        WLog_DBG(CRDP_TAG, "Received clipboard data: %u bytes", resp->common.dataLen);
+        
+        const uint8_t* data = resp->requestedFormatData;
+        size_t len = resp->common.dataLen;
+        
+        // UTF-16LE to UTF-8 conversion
+        // Allocate enough space for worst case (4 bytes per character)
+        char* utf8 = calloc(1, len * 2 + 1);
+        if (utf8) {
+            size_t j = 0;
+            for (size_t i = 0; i + 1 < len; i += 2) {
+                uint16_t ch = data[i] | (data[i + 1] << 8);
+                if (ch == 0) break;
+                
+                // Convert UTF-16 code point to UTF-8
+                if (ch < 0x80) {
+                    utf8[j++] = (char)ch;
+                } else if (ch < 0x800) {
+                    utf8[j++] = (char)(0xC0 | (ch >> 6));
+                    utf8[j++] = (char)(0x80 | (ch & 0x3F));
+                } else {
+                    utf8[j++] = (char)(0xE0 | (ch >> 12));
+                    utf8[j++] = (char)(0x80 | ((ch >> 6) & 0x3F));
+                    utf8[j++] = (char)(0x80 | (ch & 0x3F));
+                }
+            }
+            utf8[j] = '\0';
+            
+            if (j > 0) {
+                crdp_clipboard_set_text(utf8);
+                WLog_INFO(CRDP_TAG, "Clipboard synced from server: %zu chars", j);
+            }
+            free(utf8);
+        }
+    }
+    return CHANNEL_RC_OK;
+}
+
+static void crdp_cliprdr_init(crdp_context* ctx, CliprdrClientContext* cliprdr) {
+    ctx->cliprdr = cliprdr;
+    cliprdr->custom = ctx;
+    
+    ctx->clipboard = ClipboardCreate();
+    ctx->clipboardSync = FALSE;
+    ctx->clipboardCapabilities = 0;
+    
+    cliprdr->MonitorReady = crdp_cliprdr_monitor_ready;
+    cliprdr->ServerCapabilities = crdp_cliprdr_server_capabilities;
+    cliprdr->ServerFormatList = crdp_cliprdr_server_format_list;
+    cliprdr->ServerFormatListResponse = crdp_cliprdr_server_format_list_response;
+    cliprdr->ServerLockClipboardData = crdp_cliprdr_server_lock_clipboard_data;
+    cliprdr->ServerUnlockClipboardData = crdp_cliprdr_server_unlock_clipboard_data;
+    cliprdr->ServerFormatDataRequest = crdp_cliprdr_server_format_data_request;
+    cliprdr->ServerFormatDataResponse = crdp_cliprdr_server_format_data_response;
+    
+    WLog_INFO(CRDP_TAG, "Clipboard channel initialized");
+}
+
+static void crdp_cliprdr_uninit(crdp_context* ctx) {
+    if (ctx->clipboard) {
+        ClipboardDestroy(ctx->clipboard);
+        ctx->clipboard = NULL;
+    }
+    ctx->cliprdr = NULL;
+}
+
+static void crdp_OnChannelConnectedEventHandler(void* context, const ChannelConnectedEventArgs* e) {
+    crdp_context* ctx = (crdp_context*)context;
+    if (!ctx) return;
+    
+    WLog_DBG(CRDP_TAG, "Channel connected: %s", e->name);
+    
+    if (strcmp(e->name, CLIPRDR_SVC_CHANNEL_NAME) == 0) {
+        crdp_cliprdr_init(ctx, (CliprdrClientContext*)e->pInterface);
+    }
+}
+
+static void crdp_OnChannelDisconnectedEventHandler(void* context, const ChannelDisconnectedEventArgs* e) {
+    crdp_context* ctx = (crdp_context*)context;
+    if (!ctx) return;
+    
+    if (strcmp(e->name, CLIPRDR_SVC_CHANNEL_NAME) == 0) {
+        crdp_cliprdr_uninit(ctx);
+    }
+}
+
 static BOOL crdp_pre_connect(freerdp* instance) {
     crdp_context* ctx = (crdp_context*)instance->context;
     if (!ctx || !ctx->client) return FALSE;
@@ -147,6 +404,13 @@ static BOOL crdp_pre_connect(freerdp* instance) {
     freerdp_settings_set_bool(settings, FreeRDP_NegotiateSecurityLayer, TRUE);
     freerdp_settings_set_bool(settings, FreeRDP_IgnoreCertificate, TRUE); // Accept all for now
     freerdp_settings_set_bool(settings, FreeRDP_UseMultimon, FALSE);
+    
+    // Enable clipboard redirection (copy/paste between local and remote)
+    freerdp_settings_set_bool(settings, FreeRDP_RedirectClipboard, TRUE);
+    
+    // Explicitly add cliprdr static channel
+    const char* cliprdr_params[] = { "cliprdr" };
+    freerdp_client_add_static_channel(settings, 1, cliprdr_params);
 
     // Connection timeout (in milliseconds, 0 = system default)
     if (cfg->timeout_seconds > 0) {
@@ -178,12 +442,9 @@ static BOOL crdp_pre_connect(freerdp* instance) {
                           cfg->drive_path, drive_name);
                 
                 // Explicitly add rdpdr static channel to ensure it gets loaded
+                // The rdpdr channel will load the drive device service internally
                 const char* rdpdr_params[] = { "rdpdr" };
                 freerdp_client_add_static_channel(settings, 1, rdpdr_params);
-                
-                // Also add the drive channel
-                const char* drive_channel_params[] = { "drive" };
-                freerdp_client_add_static_channel(settings, 1, drive_channel_params);
             } else {
                 WLog_WARN(CRDP_TAG, "Failed to add drive to device collection");
                 freerdp_device_free(device);
@@ -196,8 +457,13 @@ static BOOL crdp_pre_connect(freerdp* instance) {
         WLog_WARN(CRDP_TAG, "Drive path invalid or not a directory: %s", cfg->drive_path);
     }
 
-    if (freerdp_client_load_addins(ctx->_p.channels, settings) != CHANNEL_RC_OK) {
-        WLog_WARN(CRDP_TAG, "Unable to load client channels");
+    // Subscribe to channel events for clipboard support
+    if (instance->context->pubSub) {
+        PubSub_SubscribeChannelConnected(instance->context->pubSub, crdp_OnChannelConnectedEventHandler);
+        PubSub_SubscribeChannelDisconnected(instance->context->pubSub, crdp_OnChannelDisconnectedEventHandler);
+        WLog_DBG(CRDP_TAG, "Subscribed to channel events");
+    } else {
+        WLog_WARN(CRDP_TAG, "pubSub is NULL, cannot subscribe to channel events");
     }
 
     return TRUE;
@@ -310,6 +576,7 @@ int crdp_client_connect(crdp_client_t* client, const crdp_config_t* config) {
 
     instance->PreConnect = crdp_pre_connect;
     instance->PostConnect = crdp_post_connect;
+    instance->LoadChannels = freerdp_client_load_channels;
     instance->Authenticate = crdp_authenticate;
     instance->VerifyCertificateEx = crdp_verify_certificate_ex;
     instance->VerifyChangedCertificateEx = crdp_verify_changed_certificate_ex;
