@@ -21,6 +21,7 @@ struct ContentView: View {
     @State private var sidebarHoverArea = false
     @State private var validationError: String?
     @State private var showValidationAlert = false
+    @State private var showPassword = false
 
     private let sidebarWidth: CGFloat = 300
 
@@ -227,12 +228,12 @@ struct ContentView: View {
         host = conn.host
         port = conn.port
         username = conn.username
+        password = conn.password
         domain = conn.domain
         width = conn.width
         height = conn.height
         enableNLA = conn.enableNLA
         allowGFX = conn.allowGFX
-        password = ""
     }
 
     private func saveCurrentConnection() {
@@ -241,6 +242,7 @@ struct ContentView: View {
             host: host,
             port: port,
             username: username,
+            password: password,
             domain: domain,
             width: width,
             height: height,
@@ -305,9 +307,28 @@ struct ContentView: View {
                         .textFieldStyle(.plain)
                 }
 
-                FormField(label: "Password", icon: "lock") {
-                    SecureField("••••••••", text: $password)
-                        .textFieldStyle(.plain)
+                HStack(spacing: 8) {
+                    FormField(label: "Password", icon: "lock") {
+                        if showPassword {
+                            TextField("password", text: $password)
+                                .textFieldStyle(.plain)
+                        } else {
+                            SecureField("••••••••", text: $password)
+                                .textFieldStyle(.plain)
+                        }
+                    }
+                    
+                    Button {
+                        showPassword.toggle()
+                    } label: {
+                        Image(systemName: showPassword ? "eye.slash.fill" : "eye.fill")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 24, height: 24)
+                    }
+                    .buttonStyle(.plain)
+                    .help(showPassword ? "Hide password" : "Show password")
+                    .padding(.top, 16)
                 }
             }
         }

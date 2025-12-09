@@ -6,6 +6,7 @@ struct SavedConnection: Codable, Identifiable, Equatable {
     var host: String
     var port: String
     var username: String
+    var password: String
     var domain: String
     var width: String
     var height: String
@@ -19,6 +20,7 @@ struct SavedConnection: Codable, Identifiable, Equatable {
         host: String,
         port: String = "3389",
         username: String = "",
+        password: String = "",
         domain: String = "",
         width: String = "1920",
         height: String = "1080",
@@ -31,6 +33,7 @@ struct SavedConnection: Codable, Identifiable, Equatable {
         self.host = host
         self.port = port
         self.username = username
+        self.password = password
         self.domain = domain
         self.width = width
         self.height = height
