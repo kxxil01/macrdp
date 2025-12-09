@@ -184,6 +184,9 @@ make -j$(sysctl -n hw.ncpu) && sudo make install
 - [x] Secure password storage: Use macOS Keychain instead of UserDefaults
   - Automatic migration from old UserDefaults storage
   - Passwords persist after app deletion (stored in system Keychain)
+- [x] Connection health indicator: Show latency/RTT in toolbar during active session
+  - Color-coded: Green (<50ms), Yellow (50-100ms), Orange (100-200ms), Red (>200ms)
+  - Updates every 2 seconds
 
 ### Planned
 
@@ -192,7 +195,6 @@ make -j$(sysctl -n hw.ncpu) && sudo make install
 - [ ] **Clear all data option**: Remove Keychain passwords, UserDefaults, trusted certs for clean uninstall
 - [ ] **Dynamic resolution**: Auto-resize remote desktop when window resizes (uses DisplayControl channel)
 - [ ] **Export/Import connections**: Backup connections to JSON file for migration (without passwords)
-- [ ] **Connection health indicator**: Show latency/ping in toolbar during active session
 
 #### Medium Priority (UX)
 
