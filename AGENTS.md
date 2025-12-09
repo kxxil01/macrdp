@@ -128,11 +128,13 @@ swift run MacRDP
 | `Cmd+Ctrl+F` | Toggle fullscreen |
 | `Esc` | Exit fullscreen |
 
-## Completed Features
+## Roadmap
+
+### Done
 
 - [x] Connection history/favorites persistence
 - [x] Password persistence with show/hide toggle
-- [x] Keyboard shortcut for sidebar toggle
+- [x] Keyboard shortcut for sidebar toggle (Cmd+Shift+S)
 - [x] Full-screen mode with auto-hiding sidebar
 - [x] Mouse wheel scrolling (vertical + horizontal)
 - [x] Import .rdp file support
@@ -142,9 +144,9 @@ swift run MacRDP
 - [x] Custom connecting animation
 - [x] Caps Lock and modifier key sync
 
-## Future Improvements
+### Planned
 
-### High Priority (Functionality)
+#### High Priority (Functionality)
 
 - [ ] **File transfer**: Send/receive files between local Mac and remote Windows
   - Drive redirection: Share local folder with remote (appears as network drive)
@@ -155,7 +157,7 @@ swift run MacRDP
 - [ ] **Connection timeout**: Configurable timeout with retry option
 - [ ] **Certificate validation UI**: Show cert details, allow trust decisions
 
-### Medium Priority (UX)
+#### Medium Priority (UX)
 
 - [ ] **Quick connect**: Command palette (Cmd+K) for fast server switching
 - [ ] **Connection groups/folders**: Organize saved connections
@@ -163,7 +165,7 @@ swift run MacRDP
 - [ ] **Touch Bar support**: Quick actions for MacBook Pro
 - [ ] **Dock menu**: Recent connections in right-click dock menu
 
-### Low Priority (Advanced)
+#### Low Priority (Advanced)
 
 - [ ] **Multi-monitor support**: Span across multiple displays
 - [ ] **Audio redirection**: Play remote audio locally
@@ -171,7 +173,7 @@ swift run MacRDP
 - [ ] **RemoteApp mode**: Run individual apps instead of full desktop
 - [ ] **Gateway support**: RD Gateway for secure external access
 
-### Code Quality
+#### Code Quality
 
 - [ ] **Unit tests**: Test ConnectionStore, RdpSession state machine
 - [ ] **UI tests**: Test connection flow, sidebar behavior
