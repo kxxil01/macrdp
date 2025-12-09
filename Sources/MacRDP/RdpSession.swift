@@ -109,12 +109,13 @@ final class RdpSession: ObservableObject {
     }
 
     func disconnect() {
-        if let client = client {
-            crdp_client_disconnect(client)
-            crdp_client_free(client)
-        }
-        client = nil
-        userRef = nil
+        guard let client = client else { return }
+        self.client = nil  // Clear first to prevent double-free from callback
+        self.userRef = nil
+        
+        crdp_client_disconnect(client)
+        crdp_client_free(client)
+        
         DispatchQueue.main.async {
             self.state = .disconnected
             self.frame = nil
@@ -164,7 +165,17 @@ final class RdpSession: ObservableObject {
     }
 
     private func handleDisconnected() {
+        // Clean up client resources on remote disconnect
+        // Only free if client hasn't been cleared by disconnect() already
+        if let client = client {
+            self.client = nil
+            self.userRef = nil
+            crdp_client_free(client)
+        }
+        
         DispatchQueue.main.async {
+            self.frame = nil
+            self.remoteSize = .zero
             self.state = .disconnected
         }
     }
