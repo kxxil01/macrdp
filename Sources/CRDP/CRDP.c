@@ -159,21 +159,21 @@ static BOOL crdp_pre_connect(freerdp* instance) {
         freerdp_settings_set_bool(settings, FreeRDP_DeviceRedirection, TRUE);
         freerdp_settings_set_bool(settings, FreeRDP_RedirectDrives, TRUE);
         
-        // Build drive string: "Name,Path" or "*,Path" for auto-detect
-        // Format for FreeRDP: name,path (e.g., "Mac,/Users/user/Downloads")
-        size_t drive_str_len = strlen(drive_name) + 1 + strlen(cfg->drive_path) + 1;
-        char* drive_str = malloc(drive_str_len);
-        if (drive_str) {
-            snprintf(drive_str, drive_str_len, "%s,%s", drive_name, cfg->drive_path);
-            
-            // Append to device list
-            if (!freerdp_settings_set_string(settings, FreeRDP_DrivesToRedirect, drive_str)) {
-                WLog_WARN(CRDP_TAG, "Failed to set drive redirection string");
-            } else {
+        // Create drive device using FreeRDP's device API
+        // freerdp_device_new expects: Type, count, args[] where args = {name, path, NULL for automount}
+        const char* args[] = { drive_name, cfg->drive_path, NULL };
+        RDPDR_DEVICE* drive = freerdp_device_new(RDPDR_DTYP_FILESYSTEM, 2, args);
+        
+        if (drive) {
+            if (freerdp_device_collection_add(settings, drive)) {
                 WLog_INFO(CRDP_TAG, "Drive redirection enabled: %s -> \\\\tsclient\\%s", 
                           cfg->drive_path, drive_name);
+            } else {
+                WLog_WARN(CRDP_TAG, "Failed to add drive to device collection");
+                freerdp_device_free(drive);
             }
-            free(drive_str);
+        } else {
+            WLog_WARN(CRDP_TAG, "Failed to create drive device");
         }
     } else if (cfg->drive_path && cfg->drive_path[0]) {
         // Path was specified but invalid
