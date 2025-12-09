@@ -220,17 +220,25 @@ final class RdpSession: ObservableObject {
             oldFingerprint: cert.old_fingerprint != nil ? String(cString: cert.old_fingerprint) : nil
         )
         
-        // Show UI on main thread and wait for decision
-        DispatchQueue.main.async {
+        // Reset semaphore state
+        certDecision = 0
+        
+        // Show UI on main thread - use sync to ensure it's set before we wait
+        // This is safe because we're on the FreeRDP background thread, not main
+        DispatchQueue.main.sync {
             self.pendingCertificate = info
         }
         
-        // Block until user makes a decision
-        certSemaphore.wait()
+        // Block until user makes a decision (with timeout to prevent hang)
+        let result = certSemaphore.wait(timeout: .now() + 300) // 5 minute timeout
         
         // Clear pending certificate
         DispatchQueue.main.async {
             self.pendingCertificate = nil
+        }
+        
+        if result == .timedOut {
+            return 0 // Reject on timeout
         }
         
         return certDecision
