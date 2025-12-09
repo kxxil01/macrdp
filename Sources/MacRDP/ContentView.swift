@@ -175,8 +175,11 @@ struct ContentView: View {
 
     private var canvasBackground: some View {
         ZStack {
-            Color(nsColor: .windowBackgroundColor)
-            if session.frame == nil {
+            // Dark background when connected, system background when disconnected
+            if session.frame != nil {
+                Color.black
+            } else {
+                Color(nsColor: .windowBackgroundColor)
                 GridPattern()
                     .opacity(0.4)
             }

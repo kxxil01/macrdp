@@ -35,7 +35,7 @@ final class Canvas: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        NSColor.windowBackgroundColor.setFill()
+        NSColor.black.setFill()
         dirtyRect.fill()
 
         guard let image else { return }
