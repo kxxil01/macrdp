@@ -239,10 +239,6 @@ struct ContentView: View {
                     .padding(.leading, 8)
             }
             
-            if session.rttMs >= 0 {
-                latencyIndicator
-            }
-            
             Divider()
                 .frame(height: 16)
             
