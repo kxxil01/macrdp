@@ -190,12 +190,14 @@ make -j$(sysctl -n hw.ncpu) && sudo make install
 #### High Priority (Functionality)
 
 - [ ] **Clear all data option**: Remove Keychain passwords, UserDefaults, trusted certs for clean uninstall
+- [ ] **Dynamic resolution**: Auto-resize remote desktop when window resizes (uses DisplayControl channel)
+- [ ] **Export/Import connections**: Backup connections to JSON file for migration (without passwords)
+- [ ] **Connection health indicator**: Show latency/ping in toolbar during active session
 
 #### Medium Priority (UX)
 
 - [ ] **Quick connect**: Command palette (Cmd+K) for fast server switching
 - [ ] **Connection groups/folders**: Organize saved connections
-- [ ] **Export connections**: Backup/restore saved connections
 - [ ] **Touch Bar support**: Quick actions for MacBook Pro
 - [ ] **Dock menu**: Recent connections in right-click dock menu
 
