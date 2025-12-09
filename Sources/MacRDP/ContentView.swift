@@ -129,15 +129,19 @@ struct ContentView: View {
                 emptyStateView
             }
 
+            // Floating toolbar
             VStack {
-                HStack {
+                HStack(spacing: 8) {
                     sidebarToggle
-                    Spacer()
+                    
                     if !showSidebar {
                         floatingStatus
                     }
+                    
+                    Spacer()
+                    
                     if isConnected {
-                        fullscreenToggle
+                        floatingToolbar
                     }
                 }
                 .padding(12)
@@ -145,6 +149,28 @@ struct ContentView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var floatingToolbar: some View {
+        HStack(spacing: 6) {
+            fullscreenToggle
+            disconnectButton
+        }
+        .padding(4)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    private var disconnectButton: some View {
+        Button {
+            session.disconnect()
+        } label: {
+            Image(systemName: "xmark.circle.fill")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(.red)
+                .frame(width: 28, height: 28)
+        }
+        .buttonStyle(.plain)
+        .help("Disconnect (Cmd+Shift+D)")
     }
 
     private var canvasBackground: some View {
@@ -326,58 +352,47 @@ struct ContentView: View {
     }
 
     private var actionButtons: some View {
-        VStack(spacing: 10) {
-            Button {
-                connect()
-            } label: {
-                HStack(spacing: 8) {
-                    if case .connecting = session.state {
-                        ProgressView()
-                            .scaleEffect(0.7)
-                            .frame(width: 16, height: 16)
-                    } else {
-                        Image(systemName: "play.fill")
-                    }
-                    Text(isConnectingOrConnected ? "Connecting..." : "Connect")
-                        .fontWeight(.medium)
+        Button {
+            connect()
+        } label: {
+            HStack(spacing: 8) {
+                if case .connecting = session.state {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                        .frame(width: 16, height: 16)
+                } else {
+                    Image(systemName: isConnected ? "arrow.triangle.2.circlepath" : "play.fill")
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
+                Text(connectButtonText)
+                    .fontWeight(.medium)
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.white)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(host.isEmpty || isConnectingOrConnected ? Color.accentColor.opacity(0.5) : Color.accentColor)
-            )
-            .scaleEffect(isHoveringConnect && !host.isEmpty && !isConnectingOrConnected ? 1.02 : 1.0)
-            .animation(.easeInOut(duration: 0.15), value: isHoveringConnect)
-            .onHover { isHoveringConnect = $0 }
-            .disabled(host.isEmpty || isConnectingOrConnected)
-
-            if isConnected {
-                Button {
-                    session.disconnect()
-                } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: "stop.fill")
-                        Text("Disconnect")
-                            .fontWeight(.medium)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.red)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.red, lineWidth: 1.5)
-                )
-                .scaleEffect(isHoveringDisconnect ? 1.02 : 1.0)
-                .animation(.easeInOut(duration: 0.15), value: isHoveringDisconnect)
-                .onHover { isHoveringDisconnect = $0 }
-            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
         }
+        .buttonStyle(.plain)
+        .foregroundStyle(.white)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(connectButtonDisabled ? Color.accentColor.opacity(0.5) : Color.accentColor)
+        )
+        .scaleEffect(isHoveringConnect && !connectButtonDisabled ? 1.02 : 1.0)
+        .animation(.easeInOut(duration: 0.15), value: isHoveringConnect)
+        .onHover { isHoveringConnect = $0 }
+        .disabled(connectButtonDisabled)
+    }
+
+    private var connectButtonText: String {
+        switch session.state {
+        case .connecting: return "Connecting..."
+        case .connected: return "Reconnect"
+        default: return "Connect"
+        }
+    }
+
+    private var connectButtonDisabled: Bool {
+        if host.isEmpty { return true }
+        if case .connecting = session.state { return true }
+        return false
     }
 
     private var statusBar: some View {

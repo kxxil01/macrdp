@@ -35,7 +35,7 @@ final class Canvas: NSView {
     }
 
     override func draw(_ dirtyRect: NSRect) {
-        NSColor(calibratedWhite: 0.96, alpha: 1.0).setFill()
+        NSColor.windowBackgroundColor.setFill()
         dirtyRect.fill()
 
         guard let image else { return }
@@ -49,8 +49,20 @@ final class Canvas: NSView {
                               height: drawSize.height)
 
         guard let ctx = NSGraphicsContext.current?.cgContext else { return }
-        ctx.interpolationQuality = .none
-        ctx.draw(image, in: drawRect)
+        
+        // Fix inverted image: save state, flip context, draw, restore
+        ctx.saveGState()
+        ctx.translateBy(x: 0, y: bounds.height)
+        ctx.scaleBy(x: 1.0, y: -1.0)
+        
+        let flippedRect = NSRect(x: drawRect.origin.x,
+                                  y: bounds.height - drawRect.origin.y - drawRect.height,
+                                  width: drawRect.width,
+                                  height: drawRect.height)
+        
+        ctx.interpolationQuality = .high
+        ctx.draw(image, in: flippedRect)
+        ctx.restoreGState()
     }
 
     // MARK: Pointer
