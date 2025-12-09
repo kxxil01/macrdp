@@ -33,43 +33,54 @@ final class RdpSession: ObservableObject {
                  enableNLA: Bool,
                  allowGFX: Bool) {
         disconnect()
-        state = .connecting
-
-        let user = Unmanaged.passUnretained(self).toOpaque()
-        userRef = user
-
-        guard let handle = crdp_client_new(RdpSession.frameThunk, user, RdpSession.disconnectThunk, user) else {
-            state = .failed("Unable to create session")
-            return
+        
+        DispatchQueue.main.async {
+            self.state = .connecting
         }
-        client = handle
 
-        let hostC = strdup(host)
-        let userC = username.isEmpty ? nil : strdup(username)
-        let passC = password.isEmpty ? nil : strdup(password)
-        let domainC = (domain?.isEmpty == false) ? strdup(domain!) : nil
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            
+            let user = Unmanaged.passUnretained(self).toOpaque()
+            self.userRef = user
 
-        var cfg = crdp_config_t(host: hostC,
-                                port: port,
-                                username: userC,
-                                password: passC,
-                                domain: domainC,
-                                width: UInt32(size.width),
-                                height: UInt32(size.height),
-                                enable_nla: enableNLA,
-                                allow_gfx: allowGFX)
+            guard let handle = crdp_client_new(RdpSession.frameThunk, user, RdpSession.disconnectThunk, user) else {
+                DispatchQueue.main.async {
+                    self.state = .failed("Unable to create session")
+                }
+                return
+            }
+            self.client = handle
 
-        let result = crdp_client_connect(handle, &cfg)
-        free(hostC)
-        free(userC)
-        free(passC)
-        free(domainC)
+            let hostC = strdup(host)
+            let userC = username.isEmpty ? nil : strdup(username)
+            let passC = password.isEmpty ? nil : strdup(password)
+            let domainC = (domain?.isEmpty == false) ? strdup(domain!) : nil
 
-        if result != 0 {
-            state = .failed("Connect failed (\(result))")
-            crdp_client_free(handle)
-            client = nil
-            return
+            var cfg = crdp_config_t(host: hostC,
+                                    port: port,
+                                    username: userC,
+                                    password: passC,
+                                    domain: domainC,
+                                    width: UInt32(size.width),
+                                    height: UInt32(size.height),
+                                    enable_nla: enableNLA,
+                                    allow_gfx: allowGFX)
+
+            let result = crdp_client_connect(handle, &cfg)
+            free(hostC)
+            free(userC)
+            free(passC)
+            free(domainC)
+
+            if result != 0 {
+                DispatchQueue.main.async {
+                    self.state = .failed("Connection failed (error \(result))")
+                }
+                crdp_client_free(handle)
+                self.client = nil
+                return
+            }
         }
     }
 
