@@ -22,33 +22,34 @@ struct ContentView: View {
 
     private let sidebarWidth: CGFloat = 300
 
+    private var shouldShowSidebarInFullscreen: Bool {
+        !isConnected || sidebarHoverArea
+    }
+
     var body: some View {
         ZStack(alignment: .leading) {
             HStack(spacing: 0) {
-                if showSidebar && !isFullscreen {
+                if showSidebar && (!isFullscreen || shouldShowSidebarInFullscreen) {
                     sidebar
                         .frame(width: sidebarWidth)
+                        .background(isFullscreen ? .ultraThinMaterial : .regularMaterial)
+                        .clipShape(isFullscreen ? AnyShape(RoundedRectangle(cornerRadius: 12)) : AnyShape(Rectangle()))
+                        .shadow(color: isFullscreen ? .black.opacity(0.3) : .clear, radius: isFullscreen ? 20 : 0, x: 5, y: 0)
+                        .padding(.leading, isFullscreen ? 8 : 0)
+                        .padding(.vertical, isFullscreen ? 8 : 0)
                         .transition(.move(edge: .leading).combined(with: .opacity))
 
-                    Divider()
+                    if !isFullscreen {
+                        Divider()
+                    }
                 }
 
                 canvasArea
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            if isFullscreen && sidebarHoverArea {
-                sidebar
-                    .frame(width: sidebarWidth)
-                    .background(.ultraThinMaterial)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .shadow(color: .black.opacity(0.3), radius: 20, x: 5, y: 0)
-                    .padding(.leading, 8)
-                    .padding(.vertical, 8)
-                    .transition(.move(edge: .leading).combined(with: .opacity))
-            }
-
-            if isFullscreen {
+            // Hover area to reveal sidebar when connected in fullscreen
+            if isFullscreen && isConnected && !sidebarHoverArea {
                 Color.clear
                     .frame(width: 20)
                     .contentShape(Rectangle())
@@ -719,6 +720,18 @@ struct GridPattern: View {
             }
             .stroke(Color.gray.opacity(0.15), lineWidth: 0.5)
         }
+    }
+}
+
+struct AnyShape: Shape {
+    private let pathBuilder: (CGRect) -> Path
+
+    init<S: Shape>(_ shape: S) {
+        pathBuilder = { rect in shape.path(in: rect) }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        pathBuilder(rect)
     }
 }
 
