@@ -33,7 +33,8 @@ final class RdpSession: ObservableObject {
                  enableNLA: Bool,
                  allowGFX: Bool,
                  sharedFolderPath: String? = nil,
-                 sharedFolderName: String? = nil) {
+                 sharedFolderName: String? = nil,
+                 timeoutSeconds: UInt32 = 30) {
         disconnect()
         
         DispatchQueue.main.async {
@@ -85,7 +86,8 @@ final class RdpSession: ObservableObject {
                                     enable_nla: enableNLA,
                                     allow_gfx: allowGFX,
                                     drive_path: drivePathC,
-                                    drive_name: driveNameC)
+                                    drive_name: driveNameC,
+                                    timeout_seconds: timeoutSeconds)
 
             let result = crdp_client_connect(handle, &cfg)
             free(hostC)

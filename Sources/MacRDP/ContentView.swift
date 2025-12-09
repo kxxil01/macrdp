@@ -25,8 +25,16 @@ struct ContentView: View {
     @State private var connectingRotation: Double = 0
     @State private var sharedFolderPath = ""
     @State private var sharedFolderName = "Mac"
+    @State private var timeoutSeconds: UInt32 = 30
 
     private let sidebarWidth: CGFloat = 300
+    private let timeoutOptions: [(String, UInt32)] = [
+        ("10 sec", 10),
+        ("30 sec", 30),
+        ("60 sec", 60),
+        ("2 min", 120),
+        ("No limit", 0)
+    ]
 
     var body: some View {
         ZStack(alignment: .leading) {
@@ -316,6 +324,7 @@ struct ContentView: View {
         allowGFX = conn.allowGFX
         sharedFolderPath = conn.sharedFolderPath
         sharedFolderName = conn.sharedFolderName
+        timeoutSeconds = conn.timeoutSeconds
     }
 
     private func saveCurrentConnection() {
@@ -331,7 +340,8 @@ struct ContentView: View {
             enableNLA: enableNLA,
             allowGFX: allowGFX,
             sharedFolderPath: sharedFolderPath,
-            sharedFolderName: sharedFolderName
+            sharedFolderName: sharedFolderName,
+            timeoutSeconds: timeoutSeconds
         )
         connectionStore.save(conn)
     }
@@ -455,6 +465,27 @@ struct ContentView: View {
                     subtitle: "Enhanced graphics, may not work on all servers",
                     isOn: $allowGFX
                 )
+
+                Divider()
+                    .padding(.vertical, 4)
+
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Connection Timeout")
+                            .font(.system(size: 12, weight: .medium))
+                        Text("Time to wait before giving up")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Picker("", selection: $timeoutSeconds) {
+                        ForEach(timeoutOptions, id: \.1) { option in
+                            Text(option.0).tag(option.1)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .frame(width: 90)
+                }
             }
         }
     }
@@ -651,6 +682,18 @@ struct ContentView: View {
             statusIndicator
             Text(statusText)
                 .font(.system(size: 12, weight: .medium))
+            
+            if case .failed = session.state {
+                Button {
+                    connect()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.blue)
+                .help("Retry connection")
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
@@ -782,7 +825,8 @@ struct ContentView: View {
             enableNLA: enableNLA,
             allowGFX: allowGFX,
             sharedFolderPath: sharedFolderPath.isEmpty ? nil : sharedFolderPath,
-            sharedFolderName: sharedFolderName.isEmpty ? nil : sharedFolderName
+            sharedFolderName: sharedFolderName.isEmpty ? nil : sharedFolderName,
+            timeoutSeconds: timeoutSeconds
         )
     }
 

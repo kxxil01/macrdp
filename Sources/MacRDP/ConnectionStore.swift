@@ -16,6 +16,8 @@ struct SavedConnection: Codable, Identifiable, Equatable {
     // Drive redirection - share local folder with remote Windows
     var sharedFolderPath: String  // Local folder path (e.g., "~/Downloads")
     var sharedFolderName: String  // Name shown on Windows (e.g., "Mac")
+    // Connection timeout in seconds (0 = no timeout, default 30)
+    var timeoutSeconds: UInt32
 
     init(
         id: UUID = UUID(),
@@ -31,7 +33,8 @@ struct SavedConnection: Codable, Identifiable, Equatable {
         allowGFX: Bool = false,
         lastUsed: Date = Date(),
         sharedFolderPath: String = "",
-        sharedFolderName: String = "Mac"
+        sharedFolderName: String = "Mac",
+        timeoutSeconds: UInt32 = 30
     ) {
         self.id = id
         self.name = name.isEmpty ? host : name
@@ -47,6 +50,7 @@ struct SavedConnection: Codable, Identifiable, Equatable {
         self.lastUsed = lastUsed
         self.sharedFolderPath = sharedFolderPath
         self.sharedFolderName = sharedFolderName
+        self.timeoutSeconds = timeoutSeconds
     }
 }
 

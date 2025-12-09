@@ -147,6 +147,13 @@ static BOOL crdp_pre_connect(freerdp* instance) {
     freerdp_settings_set_bool(settings, FreeRDP_IgnoreCertificate, TRUE); // Accept all for now
     freerdp_settings_set_bool(settings, FreeRDP_UseMultimon, FALSE);
 
+    // Connection timeout (in milliseconds, 0 = system default)
+    if (cfg->timeout_seconds > 0) {
+        uint32_t timeout_ms = cfg->timeout_seconds * 1000;
+        freerdp_settings_set_uint32(settings, FreeRDP_TcpConnectTimeout, timeout_ms);
+        WLog_INFO(CRDP_TAG, "Connection timeout set to %u seconds", cfg->timeout_seconds);
+    }
+
     if (cfg->username) freerdp_settings_set_string(settings, FreeRDP_Username, cfg->username);
     if (cfg->password) freerdp_settings_set_string(settings, FreeRDP_Password, cfg->password);
     if (cfg->domain) freerdp_settings_set_string(settings, FreeRDP_Domain, cfg->domain);

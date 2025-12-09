@@ -28,6 +28,8 @@ typedef struct {
     // If set, folder appears as \\tsclient\<drive_name> on Windows
     const char* drive_path;  // Local folder path (e.g., "/Users/user/Downloads")
     const char* drive_name;  // Name shown on Windows (e.g., "Mac")
+    // Connection timeout in seconds (0 = no timeout)
+    uint32_t timeout_seconds;
 } crdp_config_t;
 
 crdp_client_t* crdp_client_new(crdp_frame_cb frame_cb, void* frame_user, crdp_disconnected_cb disconnect_cb, void* disconnect_user);

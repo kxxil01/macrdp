@@ -160,6 +160,7 @@ make -j$(sysctl -n hw.ncpu) && sudo make install
 - [x] Caps Lock and modifier key sync
 - [x] Drive redirection UI (share local folder with remote Windows)
   - **Note**: Requires FreeRDP built with `BUILTIN_CHANNELS=OFF`. Homebrew's FreeRDP has static channels which prevents dynamic loading of rdpdr plugin.
+- [x] Connection timeout with retry option
 
 ### Planned
 
@@ -167,7 +168,6 @@ make -j$(sysctl -n hw.ncpu) && sudo make install
 
 - [ ] **Clipboard sharing**: Text copy/paste between local and remote (same FreeRDP limitation as drive redirection)
 - [ ] **Secure password storage**: Use macOS Keychain instead of UserDefaults
-- [ ] **Connection timeout**: Configurable timeout with retry option
 - [ ] **Certificate validation UI**: Show cert details, allow trust decisions
 
 #### Medium Priority (UX)
