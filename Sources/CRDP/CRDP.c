@@ -44,6 +44,8 @@ struct crdp_client {
     void* frame_user;
     crdp_disconnected_cb disconnect_cb;
     void* disconnect_user;
+    crdp_verify_cert_cb cert_cb;
+    void* cert_user;
     pthread_t thread;
     bool stop;
     bool connected;
@@ -121,8 +123,26 @@ static DWORD crdp_verify_certificate_ex(freerdp* instance,
                                         const char* issuer,
                                         const char* fingerprint,
                                         DWORD flags) {
-    WLog_INFO(CRDP_TAG, "Accepting certificate for %s:%u", host, port);
-    return 2; // accept for this session
+    crdp_context* ctx = (crdp_context*)instance->context;
+    if (!ctx || !ctx->client || !ctx->client->cert_cb) {
+        WLog_INFO(CRDP_TAG, "No cert callback, accepting certificate for %s:%u", host, port);
+        return 2; // accept for this session
+    }
+    
+    crdp_cert_info_t info = {
+        .host = host,
+        .port = port,
+        .common_name = common_name,
+        .subject = subject,
+        .issuer = issuer,
+        .fingerprint = fingerprint,
+        .is_changed = false,
+        .old_fingerprint = NULL
+    };
+    
+    int result = ctx->client->cert_cb(&info, ctx->client->cert_user);
+    WLog_INFO(CRDP_TAG, "Certificate verification for %s:%u result: %d", host, port, result);
+    return (DWORD)result;
 }
 
 static DWORD crdp_verify_changed_certificate_ex(freerdp* instance,
@@ -136,8 +156,26 @@ static DWORD crdp_verify_changed_certificate_ex(freerdp* instance,
                                                 const char* old_issuer,
                                                 const char* old_fingerprint,
                                                 DWORD flags) {
-    WLog_INFO(CRDP_TAG, "Accepting changed certificate for %s:%u", host, port);
-    return 2; // accept for this session
+    crdp_context* ctx = (crdp_context*)instance->context;
+    if (!ctx || !ctx->client || !ctx->client->cert_cb) {
+        WLog_INFO(CRDP_TAG, "No cert callback, accepting changed certificate for %s:%u", host, port);
+        return 2; // accept for this session
+    }
+    
+    crdp_cert_info_t info = {
+        .host = host,
+        .port = port,
+        .common_name = common_name,
+        .subject = subject,
+        .issuer = issuer,
+        .fingerprint = new_fingerprint,
+        .is_changed = true,
+        .old_fingerprint = old_fingerprint
+    };
+    
+    int result = ctx->client->cert_cb(&info, ctx->client->cert_user);
+    WLog_INFO(CRDP_TAG, "Changed certificate verification for %s:%u result: %d", host, port, result);
+    return (DWORD)result;
 }
 
 // Clipboard callbacks
@@ -424,7 +462,7 @@ static BOOL crdp_pre_connect(freerdp* instance) {
     freerdp_settings_set_bool(settings, FreeRDP_TlsSecurity, TRUE);
     freerdp_settings_set_bool(settings, FreeRDP_RdpSecurity, TRUE);
     freerdp_settings_set_bool(settings, FreeRDP_NegotiateSecurityLayer, TRUE);
-    freerdp_settings_set_bool(settings, FreeRDP_IgnoreCertificate, TRUE); // Accept all for now
+    freerdp_settings_set_bool(settings, FreeRDP_IgnoreCertificate, FALSE); // Use certificate callback
     freerdp_settings_set_bool(settings, FreeRDP_UseMultimon, FALSE);
     
     // Enable clipboard redirection (copy/paste between local and remote)
@@ -549,7 +587,9 @@ finish:
     return NULL;
 }
 
-crdp_client_t* crdp_client_new(crdp_frame_cb frame_cb, void* frame_user, crdp_disconnected_cb disconnect_cb, void* disconnect_user) {
+crdp_client_t* crdp_client_new(crdp_frame_cb frame_cb, void* frame_user, 
+                               crdp_disconnected_cb disconnect_cb, void* disconnect_user,
+                               crdp_verify_cert_cb cert_cb, void* cert_user) {
     crdp_client_t* client = calloc(1, sizeof(crdp_client_t));
     if (!client) return NULL;
 
@@ -557,6 +597,8 @@ crdp_client_t* crdp_client_new(crdp_frame_cb frame_cb, void* frame_user, crdp_di
     client->frame_user = frame_user;
     client->disconnect_cb = disconnect_cb;
     client->disconnect_user = disconnect_user;
+    client->cert_cb = cert_cb;
+    client->cert_user = cert_user;
     client->stop = false;
     client->connected = false;
 

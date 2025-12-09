@@ -14,6 +14,21 @@ typedef struct crdp_client crdp_client_t;
 typedef void (*crdp_frame_cb)(const uint8_t* data, uint32_t width, uint32_t height, uint32_t stride, void* user);
 typedef void (*crdp_disconnected_cb)(void* user);
 
+// Certificate verification callback
+// Returns: 0 = reject, 1 = accept permanently, 2 = accept for this session
+typedef struct {
+    const char* host;
+    uint16_t port;
+    const char* common_name;
+    const char* subject;
+    const char* issuer;
+    const char* fingerprint;
+    bool is_changed;           // true if cert changed from previously known
+    const char* old_fingerprint; // only set if is_changed
+} crdp_cert_info_t;
+
+typedef int (*crdp_verify_cert_cb)(const crdp_cert_info_t* cert, void* user);
+
 typedef struct {
     const char* host;
     uint16_t port;
@@ -32,7 +47,9 @@ typedef struct {
     uint32_t timeout_seconds;
 } crdp_config_t;
 
-crdp_client_t* crdp_client_new(crdp_frame_cb frame_cb, void* frame_user, crdp_disconnected_cb disconnect_cb, void* disconnect_user);
+crdp_client_t* crdp_client_new(crdp_frame_cb frame_cb, void* frame_user, 
+                               crdp_disconnected_cb disconnect_cb, void* disconnect_user,
+                               crdp_verify_cert_cb cert_cb, void* cert_user);
 int crdp_client_connect(crdp_client_t* client, const crdp_config_t* config);
 void crdp_client_disconnect(crdp_client_t* client);
 void crdp_client_free(crdp_client_t* client);

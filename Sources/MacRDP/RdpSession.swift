@@ -11,14 +11,31 @@ enum RdpConnectionState: Equatable {
     case failed(String)
 }
 
+struct CertificateInfo: Identifiable {
+    let id = Foundation.UUID()
+    let host: String
+    let port: UInt16
+    let commonName: String
+    let subject: String
+    let issuer: String
+    let fingerprint: String
+    let isChanged: Bool
+    let oldFingerprint: String?
+}
+
 final class RdpSession: ObservableObject {
     @Published var state: RdpConnectionState = .disconnected
     @Published var frame: CGImage?
     @Published var remoteSize: CGSize = .zero
-
+    @Published var pendingCertificate: CertificateInfo?
+    
     private var client: OpaquePointer?
     private var userRef: UnsafeMutableRawPointer?
     private let frameQueue = DispatchQueue(label: "macrdp.frame", qos: .userInitiated)
+    
+    // Semaphore to block FreeRDP thread while waiting for cert decision
+    private var certSemaphore = DispatchSemaphore(value: 0)
+    private var certDecision: Int32 = 0 // 0=reject, 1=accept permanently, 2=accept session
 
     deinit {
         disconnect()
@@ -47,7 +64,7 @@ final class RdpSession: ObservableObject {
             let user = Unmanaged.passUnretained(self).toOpaque()
             self.userRef = user
 
-            guard let handle = crdp_client_new(RdpSession.frameThunk, user, RdpSession.disconnectThunk, user) else {
+            guard let handle = crdp_client_new(RdpSession.frameThunk, user, RdpSession.disconnectThunk, user, RdpSession.certThunk, user) else {
                 DispatchQueue.main.async {
                     self.state = .failed("Unable to create session")
                 }
@@ -179,6 +196,60 @@ final class RdpSession: ObservableObject {
             self.state = .disconnected
         }
     }
+    
+    private func handleCertificate(_ certPtr: UnsafePointer<crdp_cert_info_t>) -> Int32 {
+        let cert = certPtr.pointee
+        let hostKey = "\(String(cString: cert.host)):\(cert.port)"
+        let fingerprint = String(cString: cert.fingerprint)
+        
+        // Check if we already trust this certificate
+        let trustedFingerprints = UserDefaults.standard.dictionary(forKey: "trustedCertificates") as? [String: String] ?? [:]
+        if trustedFingerprints[hostKey] == fingerprint {
+            return 2 // Accept for this session (already trusted)
+        }
+        
+        // Build certificate info for UI
+        let info = CertificateInfo(
+            host: String(cString: cert.host),
+            port: cert.port,
+            commonName: cert.common_name != nil ? String(cString: cert.common_name) : "",
+            subject: cert.subject != nil ? String(cString: cert.subject) : "",
+            issuer: cert.issuer != nil ? String(cString: cert.issuer) : "",
+            fingerprint: fingerprint,
+            isChanged: cert.is_changed,
+            oldFingerprint: cert.old_fingerprint != nil ? String(cString: cert.old_fingerprint) : nil
+        )
+        
+        // Show UI on main thread and wait for decision
+        DispatchQueue.main.async {
+            self.pendingCertificate = info
+        }
+        
+        // Block until user makes a decision
+        certSemaphore.wait()
+        
+        // Clear pending certificate
+        DispatchQueue.main.async {
+            self.pendingCertificate = nil
+        }
+        
+        return certDecision
+    }
+    
+    func acceptCertificate(permanently: Bool) {
+        if permanently, let cert = pendingCertificate {
+            var trusted = UserDefaults.standard.dictionary(forKey: "trustedCertificates") as? [String: String] ?? [:]
+            trusted["\(cert.host):\(cert.port)"] = cert.fingerprint
+            UserDefaults.standard.set(trusted, forKey: "trustedCertificates")
+        }
+        certDecision = permanently ? 1 : 2
+        certSemaphore.signal()
+    }
+    
+    func rejectCertificate() {
+        certDecision = 0
+        certSemaphore.signal()
+    }
 }
 
 // MARK: - C callbacks
@@ -194,5 +265,11 @@ private extension RdpSession {
         guard let user else { return }
         let session = Unmanaged<RdpSession>.fromOpaque(user).takeUnretainedValue()
         session.handleDisconnected()
+    }
+    
+    static let certThunk: @convention(c) (UnsafePointer<crdp_cert_info_t>?, UnsafeMutableRawPointer?) -> Int32 = { cert, user in
+        guard let cert, let user else { return 0 }
+        let session = Unmanaged<RdpSession>.fromOpaque(user).takeUnretainedValue()
+        return session.handleCertificate(cert)
     }
 }

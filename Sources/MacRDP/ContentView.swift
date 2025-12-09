@@ -128,6 +128,9 @@ struct ContentView: View {
         } message: {
             Text(validationError ?? "Please fill in all required fields")
         }
+        .sheet(item: $session.pendingCertificate) { cert in
+            CertificateSheet(cert: cert, session: session)
+        }
         .onChange(of: isConnected) { connected in
             // Auto-collapse sidebar when connected, show when disconnected
             withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -1107,5 +1110,99 @@ struct RecentConnectionRow: View {
         if interval < 86400 { return "\(Int(interval / 3600))h ago" }
         if interval < 604800 { return "\(Int(interval / 86400))d ago" }
         return "\(Int(interval / 604800))w ago"
+    }
+}
+
+struct CertificateSheet: View {
+    let cert: CertificateInfo
+    let session: RdpSession
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                Image(systemName: cert.isChanged ? "exclamationmark.shield.fill" : "lock.shield.fill")
+                    .font(.system(size: 36))
+                    .foregroundStyle(cert.isChanged ? .red : .orange)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(cert.isChanged ? "Certificate Changed" : "Verify Certificate")
+                        .font(.headline)
+                    Text(cert.isChanged 
+                         ? "The server's certificate has changed since your last connection."
+                         : "The server presented a certificate that needs verification.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+            .padding()
+            .background(Color(nsColor: .windowBackgroundColor))
+            
+            Divider()
+            
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    CertField(label: "Host", value: "\(cert.host):\(cert.port)")
+                    CertField(label: "Common Name", value: cert.commonName)
+                    CertField(label: "Subject", value: cert.subject)
+                    CertField(label: "Issuer", value: cert.issuer)
+                    CertField(label: "Fingerprint", value: cert.fingerprint, monospace: true)
+                    
+                    if cert.isChanged, let oldFp = cert.oldFingerprint {
+                        Divider()
+                        Text("Previous Certificate")
+                            .font(.headline)
+                            .foregroundStyle(.secondary)
+                        CertField(label: "Old Fingerprint", value: oldFp, monospace: true)
+                    }
+                }
+                .padding()
+            }
+            .frame(maxHeight: 300)
+            
+            Divider()
+            
+            HStack(spacing: 12) {
+                Button("Cancel") {
+                    session.rejectCertificate()
+                    dismiss()
+                }
+                .keyboardShortcut(.cancelAction)
+                
+                Spacer()
+                
+                Button("Trust Once") {
+                    session.acceptCertificate(permanently: false)
+                    dismiss()
+                }
+                
+                Button("Always Trust") {
+                    session.acceptCertificate(permanently: true)
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+            .padding()
+        }
+        .frame(width: 500)
+        .interactiveDismissDisabled()
+    }
+}
+
+private struct CertField: View {
+    let label: String
+    let value: String
+    var monospace: Bool = false
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(value.isEmpty ? "-" : value)
+                .font(monospace ? .system(.body, design: .monospaced) : .body)
+                .textSelection(.enabled)
+        }
     }
 }
