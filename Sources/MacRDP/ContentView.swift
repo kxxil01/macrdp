@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @StateObject private var session = RdpSession()
@@ -63,8 +64,22 @@ struct ContentView: View {
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: sidebarHoverArea)
         .onAppear {
             NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-                if event.modifierFlags.contains([.command, .shift]) && event.charactersIgnoringModifiers == "s" {
+                let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+                let char = event.charactersIgnoringModifiers?.lowercased()
+                
+                // Cmd+Shift+S: Toggle sidebar
+                if mods == [.command, .shift] && char == "s" {
                     showSidebar.toggle()
+                    return nil
+                }
+                // Cmd+Ctrl+F: Toggle fullscreen
+                if mods == [.command, .control] && char == "f" {
+                    toggleFullscreen()
+                    return nil
+                }
+                // Esc: Exit fullscreen
+                if event.keyCode == 53 && isFullscreen {
+                    toggleFullscreen()
                     return nil
                 }
                 return event
@@ -82,6 +97,9 @@ struct ContentView: View {
             if isConnected {
                 session.disconnect()
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .toggleFullscreen)) { _ in
+            toggleFullscreen()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.willEnterFullScreenNotification)) { _ in
             isFullscreen = true
@@ -500,13 +518,25 @@ struct ContentView: View {
 
     private func importRdpFile() {
         let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.init(filenameExtension: "rdp")!]
+        if let rdpType = UTType(filenameExtension: "rdp") {
+            panel.allowedContentTypes = [rdpType]
+        } else {
+            panel.allowedContentTypes = [.plainText]
+        }
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
+        panel.message = "Select an RDP file to import connection settings"
+        panel.prompt = "Import"
+        
         let response = panel.runModal()
         guard response == .OK, let url = panel.url else { return }
-        guard let content = try? String(contentsOf: url) else { return }
-        applyRdpContent(content)
+        
+        do {
+            let content = try String(contentsOf: url, encoding: .utf8)
+            applyRdpContent(content)
+        } catch {
+            print("Failed to read RDP file: \(error)")
+        }
     }
 
     private func applyRdpContent(_ content: String) {

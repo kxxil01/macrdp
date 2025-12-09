@@ -46,6 +46,13 @@ struct MacRDPApp: App {
                     NotificationCenter.default.post(name: .disconnect, object: nil)
                 }
                 .keyboardShortcut("d", modifiers: [.command, .shift])
+
+                Divider()
+
+                Button("Toggle Fullscreen") {
+                    NotificationCenter.default.post(name: .toggleFullscreen, object: nil)
+                }
+                .keyboardShortcut("f", modifiers: [.command, .control])
             }
         }
     }
@@ -66,4 +73,5 @@ extension Notification.Name {
     static let importRdpFile = Notification.Name("importRdpFile")
     static let connect = Notification.Name("connect")
     static let disconnect = Notification.Name("disconnect")
+    static let toggleFullscreen = Notification.Name("toggleFullscreen")
 }
