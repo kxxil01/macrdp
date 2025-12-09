@@ -107,6 +107,10 @@ final class Canvas: NSView {
         sendPointer(button: nil, isDown: false, isMove: true, event: event)
     }
 
+    override func scrollWheel(with event: NSEvent) {
+        sendScroll(event: event)
+    }
+
     // MARK: Keyboard
 
     override func keyDown(with event: NSEvent) {
@@ -148,6 +152,41 @@ private extension Canvas {
         }
 
         session.sendPointer(flags: flags, x: x, y: y)
+    }
+
+    func sendScroll(event: NSEvent) {
+        guard let session else { return }
+        let (x, y) = translateToRemote(event: event)
+        
+        // Vertical scroll
+        if event.scrollingDeltaY != 0 {
+            var flags = UInt16(PTR_FLAGS_WHEEL)
+            let delta = event.scrollingDeltaY * (event.hasPreciseScrollingDeltas ? 1 : 10)
+            let rotation = Int16(max(-0x00FF, min(0x00FF, delta * 10)))
+            
+            if rotation < 0 {
+                flags |= UInt16(PTR_FLAGS_WHEEL_NEGATIVE)
+                flags |= UInt16((-rotation) & 0x01FF)
+            } else {
+                flags |= UInt16(rotation & 0x01FF)
+            }
+            session.sendPointer(flags: flags, x: x, y: y)
+        }
+        
+        // Horizontal scroll
+        if event.scrollingDeltaX != 0 {
+            var flags = UInt16(PTR_FLAGS_HWHEEL)
+            let delta = event.scrollingDeltaX * (event.hasPreciseScrollingDeltas ? 1 : 10)
+            let rotation = Int16(max(-0x00FF, min(0x00FF, delta * 10)))
+            
+            if rotation < 0 {
+                flags |= UInt16(PTR_FLAGS_WHEEL_NEGATIVE)
+                flags |= UInt16((-rotation) & 0x01FF)
+            } else {
+                flags |= UInt16(rotation & 0x01FF)
+            }
+            session.sendPointer(flags: flags, x: x, y: y)
+        }
     }
 
     func translateToRemote(event: NSEvent) -> (UInt16, UInt16) {
