@@ -54,6 +54,7 @@ struct crdp_client {
     uint64_t last_frame_time;
     uint64_t frame_interval_sum;
     uint32_t frame_count;
+    int32_t last_rtt_ms;  // Cache last known RTT
 };
 
 static void crdp_free_config(crdp_config_t* cfg) {
@@ -729,11 +730,13 @@ int32_t crdp_get_rtt_ms(crdp_client_t* client) {
     // Try FreeRDP autodetect first
     rdpAutoDetect* autodetect = context->autodetect;
     if (autodetect && autodetect->netCharAverageRTT > 0) {
-        return (int32_t)autodetect->netCharAverageRTT;
+        client->last_rtt_ms = (int32_t)autodetect->netCharAverageRTT;
+        return client->last_rtt_ms;
     }
     
     if (autodetect && autodetect->netCharBaseRTT > 0) {
-        return (int32_t)autodetect->netCharBaseRTT;
+        client->last_rtt_ms = (int32_t)autodetect->netCharBaseRTT;
+        return client->last_rtt_ms;
     }
     
     // Fallback: use frame timing as a proxy for responsiveness
@@ -743,8 +746,14 @@ int32_t crdp_get_rtt_ms(crdp_client_t* client) {
         // Reset counters for next measurement window
         client->frame_interval_sum = 0;
         client->frame_count = 0;
-        // Return average frame interval as latency proxy (capped at 500ms)
-        return avg_interval < 500 ? (int32_t)avg_interval : 500;
+        // Cache and return average frame interval (capped at 500ms)
+        client->last_rtt_ms = avg_interval < 500 ? (int32_t)avg_interval : 500;
+        return client->last_rtt_ms;
+    }
+    
+    // Return last known value if we have one (keeps indicator visible during idle)
+    if (client->last_rtt_ms > 0) {
+        return client->last_rtt_ms;
     }
     
     return -1;
