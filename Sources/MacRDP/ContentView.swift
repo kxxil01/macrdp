@@ -16,43 +16,76 @@ struct ContentView: View {
     @State private var showSidebar = true
     @State private var isHoveringConnect = false
     @State private var isHoveringDisconnect = false
+    @State private var isFullscreen = false
+    @State private var sidebarHoverArea = false
 
     private let sidebarWidth: CGFloat = 300
 
     var body: some View {
-        HStack(spacing: 0) {
-            if showSidebar {
+        ZStack(alignment: .leading) {
+            HStack(spacing: 0) {
+                if showSidebar && !isFullscreen {
+                    sidebar
+                        .frame(width: sidebarWidth)
+                        .transition(.move(edge: .leading).combined(with: .opacity))
+
+                    Divider()
+                }
+
+                ZStack {
+                    canvasBackground
+                    RdpCanvasView(session: session)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                    if session.frame == nil {
+                        emptyStateView
+                    }
+
+                    VStack {
+                        HStack {
+                            if !isFullscreen {
+                                sidebarToggle
+                            }
+                            Spacer()
+                            if !showSidebar || isFullscreen {
+                                floatingStatus
+                            }
+                            if isConnected {
+                                fullscreenToggle
+                            }
+                        }
+                        .padding(12)
+                        Spacer()
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+
+            if isFullscreen && sidebarHoverArea {
                 sidebar
                     .frame(width: sidebarWidth)
+                    .background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .shadow(color: .black.opacity(0.3), radius: 20, x: 5, y: 0)
+                    .padding(.leading, 8)
+                    .padding(.vertical, 8)
                     .transition(.move(edge: .leading).combined(with: .opacity))
-
-                Divider()
             }
 
-            ZStack {
-                canvasBackground
-                RdpCanvasView(session: session)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                if session.frame == nil {
-                    emptyStateView
-                }
-
-                VStack {
-                    HStack {
-                        sidebarToggle
-                        Spacer()
-                        if !showSidebar {
-                            floatingStatus
+            if isFullscreen {
+                Color.clear
+                    .frame(width: 20)
+                    .contentShape(Rectangle())
+                    .onHover { hovering in
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            sidebarHoverArea = hovering
                         }
                     }
-                    .padding(12)
-                    Spacer()
-                }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: showSidebar)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isFullscreen)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: sidebarHoverArea)
         .onAppear {
             NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
                 if event.modifierFlags.contains([.command, .shift]) && event.charactersIgnoringModifiers == "s" {
@@ -74,6 +107,14 @@ struct ContentView: View {
             if isConnected {
                 session.disconnect()
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.willEnterFullScreenNotification)) { _ in
+            isFullscreen = true
+            sidebarHoverArea = false
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.willExitFullScreenNotification)) { _ in
+            isFullscreen = false
+            sidebarHoverArea = false
         }
     }
 
@@ -379,6 +420,26 @@ struct ContentView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
         .background(.ultraThinMaterial, in: Capsule())
+    }
+
+    private var fullscreenToggle: some View {
+        Button {
+            toggleFullscreen()
+        } label: {
+            Image(systemName: isFullscreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 28, height: 28)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 6))
+        }
+        .buttonStyle(.plain)
+        .help(isFullscreen ? "Exit fullscreen (Esc)" : "Enter fullscreen (Cmd+Ctrl+F)")
+    }
+
+    private func toggleFullscreen() {
+        if let window = NSApp.windows.first {
+            window.toggleFullScreen(nil)
+        }
     }
 
     private var emptyStateView: some View {

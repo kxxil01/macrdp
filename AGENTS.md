@@ -98,12 +98,14 @@ swift run MacRDP
 | `Cmd+O` | Import .rdp file |
 | `Cmd+Return` | Connect |
 | `Cmd+Shift+D` | Disconnect |
+| `Cmd+Ctrl+F` | Toggle fullscreen |
+| `Esc` | Exit fullscreen |
 
 ## Future Improvements
 
 - [x] Connection history/favorites persistence
 - [x] Keyboard shortcut for sidebar toggle (Cmd+Shift+S)
-- [ ] Full-screen mode with auto-hiding sidebar
+- [x] Full-screen mode with auto-hiding sidebar
 - [ ] Clipboard sharing support
 - [ ] Multi-monitor support
 - [ ] Certificate validation UI
