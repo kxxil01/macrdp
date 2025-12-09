@@ -224,14 +224,21 @@ private extension Canvas {
     }
 
     func mapScancode(event: NSEvent) -> (UInt16, Bool)? {
+        // First try keyCode lookup (more reliable for special keys and shifted characters)
+        if let mapped = specialKeycodeToScancode[event.keyCode] {
+            return mapped
+        }
+        
+        // Then try keyCode to character mapping for number/symbol keys
+        if let mapped = keycodeToScancode[event.keyCode] {
+            return mapped
+        }
+
+        // Fall back to character-based lookup
         if let char = event.charactersIgnoringModifiers?.lowercased().first {
             if let mapped = charToScancode[char] {
                 return mapped
             }
-        }
-
-        if let mapped = specialKeycodeToScancode[event.keyCode] {
-            return mapped
         }
 
         return nil
@@ -283,6 +290,61 @@ private extension Canvas {
         }
     }
 }
+
+// macOS keyCode -> (scancode, extended) for all standard keys
+// This is more reliable than character-based lookup for shifted keys
+private let keycodeToScancode: [UInt16: (UInt16, Bool)] = [
+    // Number row (keyCodes 18-29 for 1-0, then symbols)
+    18: (0x02, false), // 1 / !
+    19: (0x03, false), // 2 / @
+    20: (0x04, false), // 3 / #
+    21: (0x05, false), // 4 / $
+    23: (0x06, false), // 5 / %
+    22: (0x07, false), // 6 / ^
+    26: (0x08, false), // 7 / &
+    28: (0x09, false), // 8 / *
+    25: (0x0A, false), // 9 / (
+    29: (0x0B, false), // 0 / )
+    27: (0x0C, false), // - / _
+    24: (0x0D, false), // = / +
+    // Letter keys
+    0: (0x1E, false),  // a
+    11: (0x30, false), // b
+    8: (0x2E, false),  // c
+    2: (0x20, false),  // d
+    14: (0x12, false), // e
+    3: (0x21, false),  // f
+    5: (0x22, false),  // g
+    4: (0x23, false),  // h
+    34: (0x17, false), // i
+    38: (0x24, false), // j
+    40: (0x25, false), // k
+    37: (0x26, false), // l
+    46: (0x32, false), // m
+    45: (0x31, false), // n
+    31: (0x18, false), // o
+    35: (0x19, false), // p
+    12: (0x10, false), // q
+    15: (0x13, false), // r
+    1: (0x1F, false),  // s
+    17: (0x14, false), // t
+    32: (0x16, false), // u
+    9: (0x2F, false),  // v
+    13: (0x11, false), // w
+    7: (0x2D, false),  // x
+    16: (0x15, false), // y
+    6: (0x2C, false),  // z
+    // Symbol keys
+    33: (0x1A, false), // [ / {
+    30: (0x1B, false), // ] / }
+    41: (0x27, false), // ; / :
+    39: (0x28, false), // ' / "
+    42: (0x2B, false), // \ / |
+    43: (0x33, false), // , / <
+    47: (0x34, false), // . / >
+    44: (0x35, false), // / / ?
+    50: (0x29, false), // ` / ~
+]
 
 private let charToScancode: [Character: (UInt16, Bool)] = [
     "a": (0x1E, false), "b": (0x30, false), "c": (0x2E, false), "d": (0x20, false),
