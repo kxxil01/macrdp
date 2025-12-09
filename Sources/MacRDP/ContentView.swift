@@ -356,8 +356,8 @@ struct ContentView: View {
         VStack(spacing: 0) {
             sidebarHeader
             
-            VStack(spacing: 12) {
-                // Recent connections (compact)
+            VStack(spacing: 20) {
+                // Recent connections
                 if !connectionStore.connections.isEmpty {
                     recentConnectionsCompact
                 }
@@ -365,10 +365,10 @@ struct ContentView: View {
                 // Connection + Credentials combined
                 connectionCredentialsSection
                 
-                // Display (compact inline)
+                // Display settings
                 displaySectionCompact
                 
-                // Options (compact)
+                // Options
                 optionsSectionCompact
                 
                 // File sharing (collapsible)
@@ -379,7 +379,7 @@ struct ContentView: View {
                 // Connect button
                 actionButtons
             }
-            .padding(12)
+            .padding(20)
             
             statusBar
         }
@@ -387,36 +387,36 @@ struct ContentView: View {
     }
 
     private var recentConnectionsCompact: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Image(systemName: "clock.arrow.circlepath")
-                    .font(.system(size: 10))
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                 Text("RECENT")
-                    .font(.system(size: 10, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.secondary)
                 Spacer()
             }
             
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     ForEach(connectionStore.connections.prefix(5)) { conn in
                         Button {
                             loadConnection(conn)
                         } label: {
-                            HStack(spacing: 4) {
+                            HStack(spacing: 6) {
                                 Image(systemName: "desktopcomputer")
-                                    .font(.system(size: 9))
+                                    .font(.system(size: 11))
                                 Text(conn.name)
-                                    .font(.system(size: 11, weight: .medium))
+                                    .font(.system(size: 12, weight: .medium))
                                     .lineLimit(1)
                             }
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 5)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 7)
                             .background(Color(nsColor: .controlBackgroundColor))
-                            .clipShape(RoundedRectangle(cornerRadius: 5))
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 5)
+                                RoundedRectangle(cornerRadius: 6)
                                     .stroke(Color(nsColor: .separatorColor), lineWidth: 0.5)
                             )
                         }
@@ -429,149 +429,181 @@ struct ContentView: View {
     }
     
     private var connectionCredentialsSection: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 12) {
             // Host row
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 Image(systemName: "server.rack")
-                    .font(.system(size: 11))
+                    .font(.system(size: 13))
                     .foregroundStyle(.secondary)
-                    .frame(width: 16)
+                    .frame(width: 20)
                 TextField("Host (e.g. 192.168.1.100)", text: $host)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 12))
-                Text(":")
-                    .foregroundStyle(.tertiary)
-                TextField("3389", text: $port)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 12))
-                    .frame(width: 45)
+                    .font(.system(size: 13))
             }
-            .padding(8)
+            .padding(12)
             .background(Color(nsColor: .textBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            
+            // Port row
+            HStack(spacing: 10) {
+                Image(systemName: "number")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 20)
+                TextField("Port (default: 3389)", text: $port)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 13))
+            }
+            .padding(12)
+            .background(Color(nsColor: .textBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
             
             // Username + Domain row
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 Image(systemName: "person")
-                    .font(.system(size: 11))
+                    .font(.system(size: 13))
                     .foregroundStyle(.secondary)
-                    .frame(width: 16)
+                    .frame(width: 20)
                 TextField("Username", text: $username)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 12))
+                    .font(.system(size: 13))
                 
                 if !domain.isEmpty || username.contains("\\") {
                     Text("@")
                         .foregroundStyle(.tertiary)
                     TextField("Domain", text: $domain)
                         .textFieldStyle(.plain)
-                        .font(.system(size: 12))
-                        .frame(width: 60)
+                        .font(.system(size: 13))
+                        .frame(width: 70)
                 }
             }
-            .padding(8)
+            .padding(12)
             .background(Color(nsColor: .textBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
             
             // Password row
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 Image(systemName: "lock")
-                    .font(.system(size: 11))
+                    .font(.system(size: 13))
                     .foregroundStyle(.secondary)
-                    .frame(width: 16)
+                    .frame(width: 20)
                 
                 if showPassword {
                     TextField("Password", text: $password)
                         .textFieldStyle(.plain)
-                        .font(.system(size: 12))
+                        .font(.system(size: 13))
                 } else {
                     SecureField("Password", text: $password)
                         .textFieldStyle(.plain)
-                        .font(.system(size: 12))
+                        .font(.system(size: 13))
                 }
                 
                 Button {
                     showPassword.toggle()
                 } label: {
                     Image(systemName: showPassword ? "eye.slash" : "eye")
-                        .font(.system(size: 11))
+                        .font(.system(size: 13))
                         .foregroundStyle(.tertiary)
                 }
                 .buttonStyle(.plain)
             }
-            .padding(8)
+            .padding(12)
             .background(Color(nsColor: .textBackgroundColor))
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
         }
     }
     
     private var displaySectionCompact: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "display")
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-                .frame(width: 16)
-            
-            TextField("W", text: $width)
-                .textFieldStyle(.plain)
-                .font(.system(size: 12, design: .monospaced))
-                .frame(width: 45)
-            
-            Text("×")
-                .foregroundStyle(.tertiary)
-            
-            TextField("H", text: $height)
-                .textFieldStyle(.plain)
-                .font(.system(size: 12, design: .monospaced))
-                .frame(width: 45)
-            
-            Spacer()
-            
-            // Resolution presets
-            ForEach([("720p", "1280", "720"), ("1080p", "1920", "1080"), ("1440p", "2560", "1440")], id: \.0) { preset in
-                Button {
-                    width = preset.1
-                    height = preset.2
-                } label: {
-                    Text(preset.0)
-                        .font(.system(size: 10, weight: .medium))
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(width == preset.1 && height == preset.2 ? Color.accentColor : Color(nsColor: .controlBackgroundColor))
-                        .foregroundStyle(width == preset.1 && height == preset.2 ? .white : .secondary)
-                        .clipShape(RoundedRectangle(cornerRadius: 4))
+        VStack(spacing: 10) {
+            // Resolution presets row
+            HStack(spacing: 12) {
+                Image(systemName: "rectangle.3.group")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 20)
+                
+                Spacer()
+                
+                HStack(spacing: 8) {
+                    resolutionPresetButton("720", w: "1280", h: "720")
+                    resolutionPresetButton("1080", w: "1920", h: "1080")
+                    resolutionPresetButton("1440", w: "2560", h: "1440")
                 }
-                .buttonStyle(.plain)
+                
+                Spacer()
+            }
+            
+            // Current resolution row
+            HStack(spacing: 12) {
+                Image(systemName: "display")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 20)
+                
+                Spacer()
+                
+                Text("\(width) × \(height)")
+                    .font(.system(size: 13, design: .monospaced))
+                    .foregroundStyle(.primary)
+                
+                Spacer()
             }
         }
-        .padding(8)
+        .padding(12)
         .background(Color(nsColor: .textBackgroundColor))
-        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+    
+    private func resolutionPresetButton(_ label: String, w: String, h: String) -> some View {
+        Button {
+            width = w
+            height = h
+        } label: {
+            Text(label)
+                .font(.system(size: 12, weight: .medium))
+                .frame(width: 44)
+                .padding(.vertical, 6)
+                .background(width == w && height == h ? Color.accentColor : Color(nsColor: .controlBackgroundColor))
+                .foregroundStyle(width == w && height == h ? .white : .secondary)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+        }
+        .buttonStyle(.plain)
     }
     
     private var optionsSectionCompact: some View {
-        HStack(spacing: 12) {
-            // NLA toggle
-            Toggle(isOn: $enableNLA) {
-                HStack(spacing: 4) {
-                    Image(systemName: "lock.shield")
-                        .font(.system(size: 10))
-                    Text("NLA")
-                        .font(.system(size: 11))
-                }
+        VStack(spacing: 12) {
+            // Secure login toggle
+            HStack {
+                Image(systemName: "lock.shield")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 20)
+                
+                Text("Secure Login (NLA)")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.primary)
+                
+                Spacer()
+                
+                Toggle("", isOn: $enableNLA)
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                    .labelsHidden()
             }
-            .toggleStyle(.switch)
-            .controlSize(.mini)
-            .help("Network Level Authentication")
-            
-            Divider()
-                .frame(height: 16)
             
             // Timeout picker
-            HStack(spacing: 4) {
+            HStack {
                 Image(systemName: "clock")
-                    .font(.system(size: 10))
+                    .font(.system(size: 13))
                     .foregroundStyle(.secondary)
+                    .frame(width: 20)
+                
+                Text("Connection Timeout")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.primary)
+                
+                Spacer()
+                
                 Picker("", selection: $timeoutSeconds) {
                     ForEach(timeoutOptions, id: \.1) { option in
                         Text(option.0).tag(option.1)
@@ -580,51 +612,48 @@ struct ContentView: View {
                 .pickerStyle(.menu)
                 .frame(width: 75)
                 .controlSize(.small)
+                .labelsHidden()
             }
-            .help("Connection timeout")
-            
-            Spacer()
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background(Color(nsColor: .textBackgroundColor).opacity(0.5))
-        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .padding(12)
+        .background(Color(nsColor: .textBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
     
     @State private var showFileSharingOptions = false
     
     private var fileSharingCompact: some View {
         DisclosureGroup(isExpanded: $showFileSharingOptions) {
-            VStack(spacing: 6) {
-                HStack(spacing: 6) {
+            VStack(spacing: 8) {
+                HStack(spacing: 8) {
                     TextField("Folder path", text: $sharedFolderPath)
                         .textFieldStyle(.plain)
-                        .font(.system(size: 11))
-                        .padding(6)
+                        .font(.system(size: 12))
+                        .padding(8)
                         .background(Color(nsColor: .textBackgroundColor))
-                        .clipShape(RoundedRectangle(cornerRadius: 4))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
                     
                     Button {
                         selectSharedFolder()
                     } label: {
                         Image(systemName: "folder")
-                            .font(.system(size: 11))
+                            .font(.system(size: 13))
                     }
                     .buttonStyle(.plain)
                 }
                 
                 if !sharedFolderPath.isEmpty {
-                    HStack(spacing: 4) {
-                        Text("Name:")
-                            .font(.system(size: 10))
+                    HStack(spacing: 6) {
+                        Text("Share name:")
+                            .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                         TextField("Mac", text: $sharedFolderName)
                             .textFieldStyle(.plain)
-                            .font(.system(size: 11))
-                            .frame(width: 60)
-                            .padding(4)
+                            .font(.system(size: 12))
+                            .frame(width: 80)
+                            .padding(6)
                             .background(Color(nsColor: .textBackgroundColor))
-                            .clipShape(RoundedRectangle(cornerRadius: 3))
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
                         
                         Spacer()
                         
@@ -633,24 +662,24 @@ struct ContentView: View {
                             sharedFolderName = "Mac"
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 10))
+                                .font(.system(size: 12))
                                 .foregroundStyle(.tertiary)
                         }
                         .buttonStyle(.plain)
                     }
                 }
             }
-            .padding(.top, 6)
+            .padding(.top, 8)
         } label: {
-            HStack(spacing: 4) {
+            HStack(spacing: 6) {
                 Image(systemName: "folder")
-                    .font(.system(size: 10))
+                    .font(.system(size: 12))
                 Text("File Sharing")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                 if !sharedFolderPath.isEmpty {
                     Circle()
                         .fill(Color.green)
-                        .frame(width: 6, height: 6)
+                        .frame(width: 7, height: 7)
                 }
             }
             .foregroundStyle(.secondary)
@@ -930,25 +959,25 @@ struct ContentView: View {
         Button {
             connect()
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 if case .connecting = session.state {
                     ProgressView()
-                        .scaleEffect(0.6)
-                        .frame(width: 14, height: 14)
+                        .scaleEffect(0.7)
+                        .frame(width: 16, height: 16)
                 } else {
                     Image(systemName: isConnected ? "arrow.triangle.2.circlepath" : "play.fill")
-                        .font(.system(size: 11))
+                        .font(.system(size: 12))
                 }
                 Text(connectButtonText)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 36)
+            .frame(height: 42)
             .background(
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: 10)
                     .fill(connectButtonDisabled ? Color.accentColor.opacity(0.5) : Color.accentColor)
             )
-            .contentShape(RoundedRectangle(cornerRadius: 8))
+            .contentShape(RoundedRectangle(cornerRadius: 10))
         }
         .buttonStyle(.plain)
         .foregroundStyle(.white)
@@ -973,20 +1002,20 @@ struct ContentView: View {
     }
 
     private var statusBar: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             statusIndicator
             Text(statusText)
-                .font(.system(size: 11))
+                .font(.system(size: 12))
                 .foregroundStyle(.secondary)
             Spacer()
             if isConnected, session.remoteSize != .zero {
                 Text("\(Int(session.remoteSize.width))×\(Int(session.remoteSize.height))")
-                    .font(.system(size: 10, design: .monospaced))
+                    .font(.system(size: 11, design: .monospaced))
                     .foregroundStyle(.tertiary)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .background(Color(nsColor: .separatorColor).opacity(0.3))
     }
 
@@ -1628,7 +1657,7 @@ struct CompactDisclosureStyle: DisclosureGroupStyle {
                     configuration.label
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 9, weight: .semibold))
+                        .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(.tertiary)
                         .rotationEffect(.degrees(configuration.isExpanded ? 90 : 0))
                 }
@@ -1639,8 +1668,8 @@ struct CompactDisclosureStyle: DisclosureGroupStyle {
                 configuration.content
             }
         }
-        .padding(8)
-        .background(Color(nsColor: .textBackgroundColor).opacity(0.5))
-        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .padding(12)
+        .background(Color(nsColor: .textBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 }

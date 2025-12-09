@@ -200,6 +200,13 @@ make -j$(sysctl -n hw.ncpu) && sudo make install
   - Import from JSON file (Cmd+Shift+I)
   - Passwords not included for security
   - Duplicate detection on import
+- [x] Refined sidebar layout: Compact, scroll-free design for fullscreen/half-screen
+  - Separate rows for Host and Port with distinct icons
+  - Resolution presets (720/1080/1440) with current resolution display below
+  - Secure Login (NLA) and Connection Timeout as clear labeled options
+  - Collapsible File Sharing section
+  - Consistent styling with solid backgrounds and 8px border radius
+  - 20px section spacing, 12px internal padding
 
 ### Planned
 
