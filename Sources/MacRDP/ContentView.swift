@@ -32,34 +32,9 @@ struct ContentView: View {
                     Divider()
                 }
 
-                ZStack {
-                    canvasBackground
-                    RdpCanvasView(session: session)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                    if session.frame == nil {
-                        emptyStateView
-                    }
-
-                    VStack {
-                        HStack {
-                            if !isFullscreen {
-                                sidebarToggle
-                            }
-                            Spacer()
-                            if !showSidebar || isFullscreen {
-                                floatingStatus
-                            }
-                            if isConnected {
-                                fullscreenToggle
-                            }
-                        }
-                        .padding(12)
-                        Spacer()
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                canvasArea
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             if isFullscreen && sidebarHoverArea {
                 sidebar
@@ -116,6 +91,37 @@ struct ContentView: View {
             isFullscreen = false
             sidebarHoverArea = false
         }
+    }
+
+    private var canvasArea: some View {
+        ZStack {
+            canvasBackground
+
+            if session.frame != nil {
+                RdpCanvasView(session: session)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                emptyStateView
+            }
+
+            VStack {
+                HStack {
+                    if !isFullscreen {
+                        sidebarToggle
+                    }
+                    Spacer()
+                    if !showSidebar || isFullscreen {
+                        floatingStatus
+                    }
+                    if isConnected {
+                        fullscreenToggle
+                    }
+                }
+                .padding(12)
+                Spacer()
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var canvasBackground: some View {
