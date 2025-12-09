@@ -31,7 +31,9 @@ final class RdpSession: ObservableObject {
                  domain: String?,
                  size: CGSize,
                  enableNLA: Bool,
-                 allowGFX: Bool) {
+                 allowGFX: Bool,
+                 sharedFolderPath: String? = nil,
+                 sharedFolderName: String? = nil) {
         disconnect()
         
         DispatchQueue.main.async {
@@ -56,6 +58,22 @@ final class RdpSession: ObservableObject {
             let userC = username.isEmpty ? nil : strdup(username)
             let passC = password.isEmpty ? nil : strdup(password)
             let domainC = (domain?.isEmpty == false) ? strdup(domain!) : nil
+            
+            // Drive redirection - validate and prepare path
+            var drivePathC: UnsafeMutablePointer<CChar>? = nil
+            var driveNameC: UnsafeMutablePointer<CChar>? = nil
+            
+            if let folderPath = sharedFolderPath, !folderPath.isEmpty {
+                // Expand ~ to home directory if needed
+                let expandedPath = (folderPath as NSString).expandingTildeInPath
+                
+                // Verify path exists and is a directory
+                var isDir: ObjCBool = false
+                if FileManager.default.fileExists(atPath: expandedPath, isDirectory: &isDir), isDir.boolValue {
+                    drivePathC = strdup(expandedPath)
+                    driveNameC = strdup(sharedFolderName ?? "Mac")
+                }
+            }
 
             var cfg = crdp_config_t(host: hostC,
                                     port: port,
@@ -65,13 +83,17 @@ final class RdpSession: ObservableObject {
                                     width: UInt32(size.width),
                                     height: UInt32(size.height),
                                     enable_nla: enableNLA,
-                                    allow_gfx: allowGFX)
+                                    allow_gfx: allowGFX,
+                                    drive_path: drivePathC,
+                                    drive_name: driveNameC)
 
             let result = crdp_client_connect(handle, &cfg)
             free(hostC)
             free(userC)
             free(passC)
             free(domainC)
+            free(drivePathC)
+            free(driveNameC)
 
             if result != 0 {
                 DispatchQueue.main.async {

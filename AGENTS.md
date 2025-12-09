@@ -143,15 +143,12 @@ swift run MacRDP
 - [x] Floating toolbar with resolution display
 - [x] Custom connecting animation
 - [x] Caps Lock and modifier key sync
+- [x] Drive redirection (share local folder with remote Windows)
 
 ### Planned
 
 #### High Priority (Functionality)
 
-- [ ] **File transfer**: Send/receive files between local Mac and remote Windows
-  - Drive redirection: Share local folder with remote (appears as network drive)
-  - Drag & drop: Drop files onto RDP window to upload
-  - Download: Right-click remote file → "Copy to Mac"
 - [ ] **Clipboard sharing**: Text copy/paste between local and remote
 - [ ] **Secure password storage**: Use macOS Keychain instead of UserDefaults
 - [ ] **Connection timeout**: Configurable timeout with retry option

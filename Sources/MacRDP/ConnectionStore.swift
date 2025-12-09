@@ -13,6 +13,9 @@ struct SavedConnection: Codable, Identifiable, Equatable {
     var enableNLA: Bool
     var allowGFX: Bool
     var lastUsed: Date
+    // Drive redirection - share local folder with remote Windows
+    var sharedFolderPath: String  // Local folder path (e.g., "~/Downloads")
+    var sharedFolderName: String  // Name shown on Windows (e.g., "Mac")
 
     init(
         id: UUID = UUID(),
@@ -26,7 +29,9 @@ struct SavedConnection: Codable, Identifiable, Equatable {
         height: String = "1080",
         enableNLA: Bool = true,
         allowGFX: Bool = false,
-        lastUsed: Date = Date()
+        lastUsed: Date = Date(),
+        sharedFolderPath: String = "",
+        sharedFolderName: String = "Mac"
     ) {
         self.id = id
         self.name = name.isEmpty ? host : name
@@ -40,6 +45,8 @@ struct SavedConnection: Codable, Identifiable, Equatable {
         self.enableNLA = enableNLA
         self.allowGFX = allowGFX
         self.lastUsed = lastUsed
+        self.sharedFolderPath = sharedFolderPath
+        self.sharedFolderName = sharedFolderName
     }
 }
 

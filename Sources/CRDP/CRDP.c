@@ -1,6 +1,7 @@
 #include "CRDP.h"
 
 #include <freerdp/client/channels.h>
+#include <freerdp/client/rdpdr.h>
 #include <freerdp/crypto/crypto.h>
 #include <freerdp/gdi/gdi.h>
 #include <freerdp/locale/keyboard.h>
@@ -10,6 +11,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 static const char* CRDP_TAG = "CRDP";
 
@@ -38,7 +40,17 @@ static void crdp_free_config(crdp_config_t* cfg) {
     free((void*)cfg->username);
     free((void*)cfg->password);
     free((void*)cfg->domain);
+    free((void*)cfg->drive_path);
+    free((void*)cfg->drive_name);
     memset(cfg, 0, sizeof(crdp_config_t));
+}
+
+// Helper to validate drive path exists and is a directory
+static bool crdp_validate_drive_path(const char* path) {
+    if (!path || path[0] == '\0') return false;
+    struct stat st;
+    if (stat(path, &st) != 0) return false;
+    return S_ISDIR(st.st_mode);
 }
 
 static BOOL crdp_begin_paint(rdpContext* context) {
@@ -138,6 +150,36 @@ static BOOL crdp_pre_connect(freerdp* instance) {
     if (cfg->password) freerdp_settings_set_string(settings, FreeRDP_Password, cfg->password);
     if (cfg->domain) freerdp_settings_set_string(settings, FreeRDP_Domain, cfg->domain);
 
+    // Drive redirection - share local folder with remote Windows
+    // Appears as \\tsclient\<drive_name> on Windows
+    if (crdp_validate_drive_path(cfg->drive_path)) {
+        const char* drive_name = cfg->drive_name && cfg->drive_name[0] ? cfg->drive_name : "Mac";
+        
+        // Enable device redirection channel
+        freerdp_settings_set_bool(settings, FreeRDP_DeviceRedirection, TRUE);
+        freerdp_settings_set_bool(settings, FreeRDP_RedirectDrives, TRUE);
+        
+        // Build drive string: "Name,Path" or "*,Path" for auto-detect
+        // Format for FreeRDP: name,path (e.g., "Mac,/Users/user/Downloads")
+        size_t drive_str_len = strlen(drive_name) + 1 + strlen(cfg->drive_path) + 1;
+        char* drive_str = malloc(drive_str_len);
+        if (drive_str) {
+            snprintf(drive_str, drive_str_len, "%s,%s", drive_name, cfg->drive_path);
+            
+            // Append to device list
+            if (!freerdp_settings_set_string(settings, FreeRDP_DrivesToRedirect, drive_str)) {
+                WLog_WARN(CRDP_TAG, "Failed to set drive redirection string");
+            } else {
+                WLog_INFO(CRDP_TAG, "Drive redirection enabled: %s -> \\\\tsclient\\%s", 
+                          cfg->drive_path, drive_name);
+            }
+            free(drive_str);
+        }
+    } else if (cfg->drive_path && cfg->drive_path[0]) {
+        // Path was specified but invalid
+        WLog_WARN(CRDP_TAG, "Drive path invalid or not a directory: %s", cfg->drive_path);
+    }
+
     if (freerdp_client_load_addins(ctx->_p.channels, settings) != CHANNEL_RC_OK) {
         WLog_WARN(CRDP_TAG, "Unable to load client channels");
     }
@@ -227,6 +269,8 @@ int crdp_client_connect(crdp_client_t* client, const crdp_config_t* config) {
     client->config.username = config->username ? strdup(config->username) : NULL;
     client->config.password = config->password ? strdup(config->password) : NULL;
     client->config.domain = config->domain ? strdup(config->domain) : NULL;
+    client->config.drive_path = config->drive_path ? strdup(config->drive_path) : NULL;
+    client->config.drive_name = config->drive_name ? strdup(config->drive_name) : NULL;
 
     freerdp* instance = freerdp_new();
     if (!instance) return -2;

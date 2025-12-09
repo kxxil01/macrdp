@@ -24,6 +24,10 @@ typedef struct {
     uint32_t height;
     bool enable_nla;
     bool allow_gfx;
+    // Drive redirection - share a local folder with remote
+    // If set, folder appears as \\tsclient\<drive_name> on Windows
+    const char* drive_path;  // Local folder path (e.g., "/Users/user/Downloads")
+    const char* drive_name;  // Name shown on Windows (e.g., "Mac")
 } crdp_config_t;
 
 crdp_client_t* crdp_client_new(crdp_frame_cb frame_cb, void* frame_user, crdp_disconnected_cb disconnect_cb, void* disconnect_user);

@@ -23,6 +23,8 @@ struct ContentView: View {
     @State private var showValidationAlert = false
     @State private var showPassword = false
     @State private var connectingRotation: Double = 0
+    @State private var sharedFolderPath = ""
+    @State private var sharedFolderName = "Mac"
 
     private let sidebarWidth: CGFloat = 300
 
@@ -277,6 +279,7 @@ struct ContentView: View {
                     credentialsSection
                     displaySection
                     optionsSection
+                    fileSharingSection
                     actionButtons
                 }
                 .padding(16)
@@ -311,6 +314,8 @@ struct ContentView: View {
         height = conn.height
         enableNLA = conn.enableNLA
         allowGFX = conn.allowGFX
+        sharedFolderPath = conn.sharedFolderPath
+        sharedFolderName = conn.sharedFolderName
     }
 
     private func saveCurrentConnection() {
@@ -324,7 +329,9 @@ struct ContentView: View {
             width: width,
             height: height,
             enableNLA: enableNLA,
-            allowGFX: allowGFX
+            allowGFX: allowGFX,
+            sharedFolderPath: sharedFolderPath,
+            sharedFolderName: sharedFolderName
         )
         connectionStore.save(conn)
     }
@@ -448,6 +455,88 @@ struct ContentView: View {
                     subtitle: "Enhanced graphics, may not work on all servers",
                     isOn: $allowGFX
                 )
+            }
+        }
+    }
+
+    private var fileSharingSection: some View {
+        FormSection(title: "File Sharing", icon: "folder") {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Share a local folder with the remote Windows session.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 8) {
+                    TextField("Folder path", text: $sharedFolderPath)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 12))
+
+                    Button {
+                        selectSharedFolder()
+                    } label: {
+                        Image(systemName: "folder.badge.plus")
+                            .font(.system(size: 14))
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Choose folder")
+                }
+
+                if !sharedFolderPath.isEmpty {
+                    HStack(spacing: 8) {
+                        Text("Name on Windows:")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+
+                        TextField("Mac", text: $sharedFolderName)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(size: 12))
+                            .frame(width: 80)
+
+                        Spacer()
+
+                        Button {
+                            sharedFolderPath = ""
+                            sharedFolderName = "Mac"
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.borderless)
+                        .help("Clear shared folder")
+                    }
+
+                    Text("Appears as \\\\tsclient\\\(sharedFolderName.isEmpty ? "Mac" : sharedFolderName)")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.tertiary)
+                }
+            }
+        }
+    }
+
+    private func selectSharedFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        panel.prompt = "Select Folder"
+        panel.message = "Choose a folder to share with the remote Windows session"
+
+        // Default to Downloads if no path set
+        if sharedFolderPath.isEmpty {
+            panel.directoryURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+        } else {
+            let expandedPath = (sharedFolderPath as NSString).expandingTildeInPath
+            panel.directoryURL = URL(fileURLWithPath: expandedPath)
+        }
+
+        if panel.runModal() == .OK, let url = panel.url {
+            sharedFolderPath = url.path
+            // Use folder name as default share name if not set
+            if sharedFolderName == "Mac" || sharedFolderName.isEmpty {
+                sharedFolderName = url.lastPathComponent
             }
         }
     }
@@ -691,7 +780,9 @@ struct ContentView: View {
             domain: domain.trimmingCharacters(in: .whitespaces),
             size: CGSize(width: widthVal, height: heightVal),
             enableNLA: enableNLA,
-            allowGFX: allowGFX
+            allowGFX: allowGFX,
+            sharedFolderPath: sharedFolderPath.isEmpty ? nil : sharedFolderPath,
+            sharedFolderName: sharedFolderName.isEmpty ? nil : sharedFolderName
         )
     }
 
